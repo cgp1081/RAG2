@@ -399,3 +399,85 @@ See Section 6 for default system prompt
 - Enable chat history context in a multi-turn thread.
 - Support chained actions across multiple queries.
 
+## 18. Optimization Plan for Configurability & Feature Growth
+
+
+To ensure this platform remains easy to configure, maintain, and extend with tenant-specific features, the following design patterns and enhancements are recommended:
+
+### 18.1 Plugin-Based Connector Architecture
+- All document and structured data ingestion connectors follow a shared interface and live in modular directories (e.g., `/connectors/gdrive/`, `/connectors/s3/`).
+- Enables addition of new sources without editing core codebase.
+- Plugin manifest includes:
+  - `auth_type`, `source_type`, `sync_style`, `supported_formats`
+
+### 18.2 Per-Tenant Configuration
+- Each tenant has its own YAML or DB-stored config defining:
+```yaml
+llm:
+  provider: ollama
+  model: mistral
+  fallback: [openai:gpt-3.5, anthropic:claude-3-haiku]
+retrieval:
+  top_k: 5
+  hybrid: true
+prompts:
+  system: "You are a helpful assistant..."
+features:
+  pii_redaction: true
+  agent_actions: false
+```
+- Loaded dynamically for ingestion, query, and chat rendering.
+
+### 18.3 Feature Flag Framework
+- Feature toggles set per tenant to enable/disable capabilities.
+- Backed by DB or Unleash server.
+- Exposed in dashboard + API.
+
+### 18.4 Admin UI Schema Editor
+- During table ingestion, admins can override inferred schema:
+  - Column types, PKs, FKs
+  - Visibility per column
+- Stores as versioned schema overrides
+
+### 18.5 Prompt Registry & GUI Editor
+- Per-tenant prompt templates stored in DB
+- Web editor in admin panel with:
+  - Tone presets (formal, helpful, fun)
+  - Format modes (bullets, paragraphs, JSON)
+  - Live preview and test mode
+
+### 18.6 CLI Bootstrap for New Tenants
+- One-line CLI to create all config and isolation primitives:
+```bash
+rag bootstrap-tenant --name acme --llm mistral --connectors gdrive,s3
+```
+
+### 18.7 Helm Charts for Deployment
+- Helm templates for container orchestration and config.
+- Secrets injection, persistent volumes, scaling groups.
+
+### 18.8 Structured Event Bus
+- Event-driven ingestion, logging, agent execution.
+- Supports webhook listeners, tenant hooks, and internal workflows.
+
+### 18.9 App Store for Agents
+- Agents defined via JSON manifest per tenant.
+- Controlled via admin panel UI and API.
+- Logged executions and audit trail.
+
+### 18.10 Composable Retrieval Pipelines
+- Declarative YAML-based retrieval logic per tenant:
+```yaml
+retrieval_pipeline:
+  - filter: visibility_scope=public
+  - scorer: bm25
+  - scorer: vector_similarity
+  - rerank: feedback_boost
+```
+
+### 18.11 Unified Trace Logging & Debugging
+- Assign `trace_id` to all lifecycle stages
+- Expose trace logs in admin panel
+- Metrics dashboard powered by Prometheus, Loki
+
+---
