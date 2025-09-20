@@ -170,3 +170,46 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
 5. Define SLAs for data sync frequency and maximum supported document size.
 6. Clarify natural language → SQL translation controls and review workflows.
 7. Establish strategy for large table result limits and download/export handling.
+
+
+---
+
+## Enhancements (Robust RAG Features)
+
+### 🔍 Hybrid Retrieval (Dense + Sparse)
+- Combines Qdrant vector search with BM25 keyword retriever for improved recall.
+- Useful for numeric identifiers, names, or exact phrases.
+
+### 📈 Feedback-Driven Retrieval Optimization
+- Log retrieved chunks, scores, and feedback (thumbs up/down, click behavior).
+- Future support for re-ranking or exclusion of stale/poor chunks.
+
+### 🧪 Retrieval Evaluation Harness
+- Golden Q&A dataset with known answers and sources.
+- Run precision/recall analysis after ingest or model change.
+
+### 🧠 Chunk Embedding Drift & Shadow Testing
+- Detect changes in embedding vectors over time (drift detection).
+- Shadow mode runs alternate model/prompt/retriever with logging-only output.
+
+### 🔐 Agent Tooling Controls
+- Secure allowlist per tenant for which agents/tools can be invoked.
+- Future support for CRM/email/form fill agents.
+
+### 📊 Usage Metering & Tenant Controls
+- Track usage: token count, docs ingested, queries/day.
+- Add configurable limits for multi-tenant SaaS control.
+
+### ✂️ Redaction Layer
+- Inference-time redaction to strip PII or sensitive fields from LLM output.
+
+### 🧰 Prompt Registry
+- Versioned, per-tenant prompt templates with overrides via API/CLI.
+
+### 🧱 Row-Level Table Security
+- Apply row filters per user or tenant ID during table Q&A.
+
+### 🧭 UX Additions
+- “Explain this answer” tooltips with chunk metadata and source strength.
+- Multi-turn chat memory and follow-up query linking.
+

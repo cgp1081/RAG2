@@ -333,3 +333,69 @@ See Section 6 for default system prompt
 
 ### D. LLM Compatibility Matrix
 *Placeholder*
+
+
+---
+
+## 15. Advanced Retrieval, Feedback & Observability Enhancements
+
+### Hybrid Retrieval Support
+- Implement hybrid retrieval combining vector search (Qdrant) and keyword/BM25-based sparse retrieval.
+- Score fusion used to combine dense/sparse rankings.
+
+### Retrieval Feedback Logging
+- Log retrieval hit/miss ratio, embedding similarity scores, and chunk IDs.
+- Support click tracking, thumbs up/down feedback for future reranking.
+
+### Retrieval Evaluation Framework
+- Define golden Q&A pairs with known source chunks.
+- Automate precision/recall evaluation per model or chunking config.
+
+### Feedback-Driven Chunk Ranking
+- Promote frequently clicked or positively rated chunks.
+- Suppress or flag poorly performing documents or chunks.
+
+### Chunk Embedding Drift Detection
+- Track changes in embedding vector norms and similarity upon re-embedding.
+- Alert when drift exceeds threshold.
+
+### Output Redaction Layer (LLM response)
+- Inference-time redaction for PII, keywords, or regex-matched patterns.
+- Configurable by tenant or role.
+
+### Shadow Deployment Support
+- Run alternate retrieval/prompt/LLM flow in shadow mode for evaluation.
+- Log and compare outputs side-by-side with production.
+
+---
+
+## 16. Agent Control, SaaS Readiness, Usage Metering
+
+### Agent Tool Allowlist
+- Registry of approved tools per tenant or role.
+- Logged invocations with input/output for audit.
+
+### Per-Tenant Rate Limiting & Metering
+- Track query volume, token usage, ingestion size, model calls.
+- Rate limits and billing enforcement per tier.
+
+### Prompt Registry
+- Centralized versioned prompt templates per tenant.
+- REST/CLI access for override or customization.
+
+### Row-Level Table Permissions
+- Extend structured filters to row-level (e.g., customer_id, region).
+- Evaluated during table query execution.
+
+---
+
+## 17. UX Improvements
+
+### Explain Retrieval Button
+- Allow user to reveal why a source was included.
+- Show score, metadata, source type.
+
+### Multi-Turn Memory & Query Chains
+- Enable chat history context in a multi-turn thread.
+- Support chained actions across multiple queries.
+
