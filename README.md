@@ -4,6 +4,13 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
 
 ---
 
+## Required Companion Documents
+- **Read this first:** Always review the README together with the detailed specs in [`PRD.md`](PRD.md) and the architecture outline in [`architecture.md`](architecture.md) before planning or implementing changes.
+- Use the PRD for product scope, success metrics, and feature requirements; use the architecture document for component responsibilities and pending decisions.
+- **Change policy:** Whenever you modify this README, ensure corresponding updates (or explicit confirmations that no change is needed) are applied to both [`PRD.md`](PRD.md) and [`architecture.md`](architecture.md) in the same edit cycle so the documents stay aligned.
+
+---
+
 ## Table of Contents
 1. [Product Scope](#product-scope)
 2. [User Experiences](#user-experiences)

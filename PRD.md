@@ -2,6 +2,8 @@
 
 ---
 
+> **Reference:** Review this PRD alongside the high-level orientation in [`README.md`](README.md) and the component breakdown in [`architecture.md`](architecture.md) before creating implementation plans.
+
 ## 1. Overview
 
 The RAG Ingest Application is a SaaS-style service designed for small to medium-sized businesses (SMBs) that want to integrate AI into their operations. Target users include law firms, restaurants, accountants, and other professional service providers.
