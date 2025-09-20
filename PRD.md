@@ -42,6 +42,7 @@ Both agents rely on Retrieval-Augmented Generation (RAG) using a customizable, b
 - 👥 >50% support deflection by AI
 - 🛠️ Onboarding time <30 minutes
 - 🔁 High retention over 3 months
+- ☎️ 80% of routine support calls resolved by the AI phone agent without human escalation
 
 ---
 
@@ -51,6 +52,7 @@ Both agents rely on Retrieval-Augmented Generation (RAG) using a customizable, b
 - Internal chat with citations
 - External customer bot with configurable access
 - Structured data Q&A returning tabular answers linked to document context
+- Telephone voice agent that handles inbound calls, converts speech to text, retrieves grounded answers, and responds with neural TTS
 
 ### Ingestion & Connectors
 - PDF, DOCX, SQL DBs, CRM exports, cloud storage (S3, GCS)
@@ -194,6 +196,12 @@ llm_config:
 - Optional filters, search, and starred chats
 - Render tabular answers with download/export options when queries target structured data
 
+### Telephone Support Experience
+- Caller greeting, identity confirmation, and consent capture.
+- Live transcription displayed in the agent console with confidence indicators.
+- Configurable hold/transfer flows with real-time escalation handoff to human agents.
+- Post-call summary with cited knowledge chunks and disposition tagging.
+
 ---
 
 ## 9. Security, Privacy & Access Controls
@@ -249,6 +257,7 @@ llm_config:
 ### Performance
 - Target response: <1.5s first token, <3s full answer
 - Fast retrieval under 300ms
+- Maintain <1.5s round-trip latency per dialogue turn for telephony calls, including transcription and synthesis.
 
 ### Scalability
 - 10k+ docs

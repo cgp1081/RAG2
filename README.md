@@ -40,6 +40,12 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
 - Operates in public or authenticated modes.
 - Emphasizes sourced, trustworthy responses with lightweight UX.
 
+### Telephone Support Agent
+- Inbound and outbound phone agent that connects callers with the RAG knowledge base.
+- Uses speech-to-text for transcription, passes the transcript through the existing retrieval and generation flow, and returns answers via neural text-to-speech.
+- Supports DTMF or spoken intents to navigate topics, trigger follow-up questions, or escalate to a human operator when confidence is low.
+- Stores full call transcripts, audio recordings, and cited sources for compliance review.
+
 ---
 
 ## System Architecture
@@ -52,6 +58,7 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
   - Embedding & LLM engines: Ollama local models by default; abstracted provider layer for OpenAI/Claude.
   - Storage: PostgreSQL for metadata/config; object storage for raw uploads.
   - Structured data service: relational schemas cataloguing ingested tables and guarded SQL execution.
+  - Voice pipeline integrating telephony provider (e.g., Twilio) with streaming speech-to-text, RAG orchestration, and neural text-to-speech playback.
   - Scheduler: Cron-driven workers for sync, re-ingest, re-embed.
 
 - **Tenancy:** Single-tenant deployment baseline with namespace isolation in data stores; roadmap to multi-tenant.
@@ -113,6 +120,7 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
   - Permissions UI for tagging, visibility scopes, role assignments.
   - Deduplication review queue and conflict resolution tools.
   - Usage analytics: query volume, response accuracy, deflection stats.
+  - Call analytics dashboard with transcript search, confidence scoring, and manual escalation logs.
   - Table catalog management with schema previews, column visibility, and export controls.
 
 - **CLI Utilities:**
