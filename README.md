@@ -24,6 +24,7 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
 - **Value Proposition:** Fast, accurate Q&A over internal knowledge with full source traceability; customer self-service with compliance-friendly guardrails.
 - **Stage:** Prototype rebuild intended for self-hosted deployment first, with a SaaS path later.
 - **Success Metrics:** <1.5s response time for 90% of queries, >90% grounded retrieval precision, 10k+ docs per tenant, >50% support deflection, <30m onboarding.
+- **Structured Data:** Direct ingestion of business tables with SQL-backed Q&A linked to document context.
 
 ---
 
@@ -50,35 +51,42 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
   - Orchestration layer: LangChain-style agents & tools.
   - Embedding & LLM engines: Ollama local models by default; abstracted provider layer for OpenAI/Claude.
   - Storage: PostgreSQL for metadata/config; object storage for raw uploads.
+  - Structured data service: relational schemas cataloguing ingested tables and guarded SQL execution.
   - Scheduler: Cron-driven workers for sync, re-ingest, re-embed.
 
 - **Tenancy:** Single-tenant deployment baseline with namespace isolation in data stores; roadmap to multi-tenant.
 
-- **Integration Layer:** Pluggable connectors using OAuth/token flows per employee; service accounts for shared sources.
+- **Integration Layer:** Pluggable connectors using OAuth/token flows per employee; service accounts for shared sources; schema-driven table connectors with scheduled refresh.
 
 ---
 
 ## Data Ingestion Pipeline
 
 1. **Source Connectors**
-   - Early support: Google Drive, SQL (Postgres/MySQL), cloud object stores (S3/GCS).
-   - Future extension: CRM exports, DOCX, PDFs, no-code automations (Zapier, n8n).
+   - Document repositories: Google Drive, cloud object stores (S3/GCS), CRM exports.
+   - Structured feeds: CSV uploads, spreadsheet tabs, relational tables (Postgres/MySQL).
+   - Future extension: DOCX, additional SaaS APIs, no-code automations (Zapier, n8n).
 
 2. **Normalization & Chunking**
    - Recursive character text splitter (~300–500 tokens) with sliding window fallback.
    - Extract metadata (source type, author, tags, timestamps).
 
-3. **Deduplication & Tagging**
+3. **Table Normalization & Storage**
+   - Infer schema metadata, primary keys, and relationships.
+   - Snapshot tables into tenant-scoped Postgres schemas with versioning.
+   - Emit per-column statistics and summary embeddings for retrieval.
+
+4. **Deduplication & Tagging**
    - Exact hashing (SHA256) plus near-duplicate cosine similarity.
    - Manual or automated tagging aligned with visibility scopes and categories.
 
-4. **Embedding & Storage**
+5. **Embedding & Indexing**
    - Synchronous embedding on ingest; background re-embedding when models change.
-   - Store vectors + metadata in Qdrant; persist raw docs + derived artifacts.
+   - Store vectors + metadata in Qdrant; persist raw docs, table summaries, and relational snapshots.
 
-5. **Access Control**
+6. **Access Control**
    - Namespace isolation per tenant + role-based filters (`admin`, `employee`, `customer`).
-   - Query-time metadata filtering for tags, scopes, authorship.
+   - Table and column-level filters enforced at query time and exposed to metadata-driven policies.
 
 ---
 
@@ -86,11 +94,11 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
 
 1. User submits message (chat or API).
 2. Backend applies guardrails (auth checks, rate limits).
-3. Query embedding generated via configured model.
-4. Top-K retrieval with metadata filters applied.
-5. RAG prompt assembled with context windows, instructions, and formatting guidelines.
-6. Selected LLM (Ollama default) produces grounded response.
-7. Return message with inline citations referencing source metadata.
+3. Intent classifier routes between document/vector retrieval, structured table retrieval, or hybrid mode.
+4. Generate embeddings and retrieve top-K chunks; run parameterized SQL on authorized tables when tabular intent detected.
+5. Assemble RAG prompt with document context, table summaries/results, and formatting guidelines.
+6. Selected LLM (Ollama default) produces grounded response blending narrative and tabular data.
+7. Return message with inline citations referencing documents and table sources, plus optional downloadable table payloads.
 
 - **Customization:** System prompt templates per tenant; adjustable tone, allowed tools, fallback models.
 - **Observability:** Log retrieval hits/misses, latency, token usage, and citation quality for metrics dashboards.
@@ -105,14 +113,17 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
   - Permissions UI for tagging, visibility scopes, role assignments.
   - Deduplication review queue and conflict resolution tools.
   - Usage analytics: query volume, response accuracy, deflection stats.
+  - Table catalog management with schema previews, column visibility, and export controls.
 
 - **CLI Utilities:**
   - `rag ingest <path>` for manual uploads.
   - `rag reembed --model <name>` to trigger re-embedding.
   - `rag sync <connector>` for ad-hoc refresh.
+  - `rag table register <source>` to capture schemas and manage refresh schedules.
 
 - **API Endpoints:**
   - REST endpoints for chat, ingest, and metadata management.
+  - Table registration, schema refresh, and guarded SQL execution endpoints.
   - Future addition: user provisioning and role management.
 
 ---
@@ -122,6 +133,7 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
 - Encryption in transit (TLS) and at rest (storage/provider native).
 - Secrets management for OAuth tokens and API keys (e.g., Vault, AWS Secrets Manager).
 - Role-based access enforcement across UI, API, and data layers.
+- Guarded SQL execution layer with column masking and query auditing for structured data.
 - Audit logs for ingestion events, queries, config changes with export support.
 - GDPR-friendly data export and deletion roadmap.
 - Operational monitoring for anomalies and usage patterns.
@@ -156,4 +168,5 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
 3. Determine authentication provider (native, SSO, third-party).
 4. Decide on default Ollama models and fallback order for cloud providers.
 5. Define SLAs for data sync frequency and maximum supported document size.
-
+6. Clarify natural language → SQL translation controls and review workflows.
+7. Establish strategy for large table result limits and download/export handling.

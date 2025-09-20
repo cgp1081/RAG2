@@ -50,6 +50,7 @@ Both agents rely on Retrieval-Augmented Generation (RAG) using a customizable, b
 ### Retrieval-Augmented Chat Interfaces
 - Internal chat with citations
 - External customer bot with configurable access
+- Structured data Q&A returning tabular answers linked to document context
 
 ### Ingestion & Connectors
 - PDF, DOCX, SQL DBs, CRM exports, cloud storage (S3, GCS)
@@ -72,10 +73,12 @@ Both agents rely on Retrieval-Augmented Generation (RAG) using a customizable, b
 - Google Drive
 - SQL Databases (Postgres, MySQL)
 - Cloud Storage (S3, GCS)
+- Tabular sources (CSV uploads, spreadsheets, database tables)
 
 ### Integration Model
 - Per-user connections for employees (OAuth, tokens)
 - Public or authenticated access tiers for customers
+- Structured sources maintain tenant-specific schema catalogs with scheduled refresh jobs
 
 ---
 
@@ -88,10 +91,12 @@ Both agents rely on Retrieval-Augmented Generation (RAG) using a customizable, b
 ### Metadata Strategy
 - `source_type`, `tag`, `author`, `visibility_scope`, `created_at`
 - Rich filtering and ranking supported
+- Table linkage metadata (`table_id`, `column_id`) to bridge structured answers and documents
 
 ### Access Control
 - Namespace-based separation
 - Role-linked filtering in query layer
+- Table- and column-level guards derived from RBAC settings
 
 ---
 
@@ -103,10 +108,11 @@ Both agents rely on Retrieval-Augmented Generation (RAG) using a customizable, b
 
 ### Query Flow
 1. User submits query
-2. Embed + retrieve top-K chunks
-3. RAG prompt constructed
-4. LLM generates grounded answer
-5. Sources are cited inline
+2. Intent classifier selects document/vector retrieval, structured table retrieval, or hybrid
+3. Embed + retrieve top-K chunks and/or run parameterized SQL over authorized tables
+4. RAG prompt constructed with tabular summaries and document context
+5. LLM generates grounded answer with optional table payloads
+6. Sources (documents and tables) are cited inline
 
 ### Prompt Config
 - Customers can customize system prompt, tone, and behavior
@@ -155,6 +161,13 @@ llm_config:
 - Configurable (auto or manual)
 - Categorized by visibility, type, origin
 
+### Table Normalization & Storage
+- Detect structured datasets (CSV uploads, spreadsheet tabs, relational tables)
+- Capture schema metadata, primary keys, and relationships
+- Persist per-tenant table snapshots in relational storage (Postgres)
+- Generate column statistics and summary embeddings for retrieval
+- Link table and column records to vector entries for hybrid doc/table responses
+
 ---
 
 ## 8. UI / UX
@@ -162,6 +175,7 @@ llm_config:
 ### Admin Dashboard
 - Uploads, tagging, deduplication
 - Permissions & exposure settings
+- Table catalog with schema previews, access controls, and exports
 - Logs and usage stats
 
 ### User Chat Portals
@@ -178,6 +192,7 @@ llm_config:
 - Thumbs up/down feedback
 - Full query history with timestamps
 - Optional filters, search, and starred chats
+- Render tabular answers with download/export options when queries target structured data
 
 ---
 
@@ -189,6 +204,7 @@ llm_config:
 
 ### Roles
 - Admin, Employee, Customer
+- Optional column-level permissions for sensitive structured data
 
 ### Authentication
 - Email/password login with JWTs for prototype
@@ -197,6 +213,7 @@ llm_config:
 ### Security
 - Encryption at rest + transit
 - OAuth secrets stored securely
+- Guarded SQL execution layer with column masking for sensitive fields
 
 ### Audit Logs
 - Track ingestion, queries, access, and config changes
@@ -208,12 +225,14 @@ llm_config:
 
 ### API
 - REST API for chat and ingest
+- Structured data endpoints for registering tables, refreshing schemas, and executing guarded queries
 - User management endpoints (future)
 
 ### CLI
 - Upload
 - Re-ingest
 - Re-embed
+- Register table schemas and trigger refresh jobs
 
 ### Scheduler
 - Cron for drive/db sync
@@ -262,12 +281,15 @@ llm_config:
 - Industry-specific user expectations
 - Security concerns from potential customers
 - Solo maintenance risk
+- SQL guardrails must prevent over-broad queries or leakage
+- Schema drift between source systems and stored snapshots
 
 ### Assumptions
 - Self-hosting is acceptable
 - Open-source stack remains stable
 - RAG > generative-only LLM
 - Chat UX is accepted for business ops
+- Natural language table querying remains accurate with user feedback loops
 
 ---
 
