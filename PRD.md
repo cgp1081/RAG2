@@ -110,6 +110,30 @@ Both agents rely on Retrieval-Augmented Generation (RAG) using a customizable, b
 
 ### Prompt Config
 - Customers can customize system prompt, tone, and behavior
+- System Prompt Template Example:
+  ```
+  You are a helpful business assistant. Always answer using only the provided context. If you don’t know the answer, say “I don’t know.”
+
+  Format:
+  - Answer concisely
+  - Cite sources as [Doc Title](URL) after each fact
+
+  Context:
+  {{retrieved_chunks}}
+
+  User Question:
+  {{user_input}}
+  ```
+
+### LLM Provider Routing & Fallback
+```yaml
+llm_config:
+  provider: "ollama"
+  model: "mistral"
+  fallback_providers:
+    - openai:gpt-3.5
+    - anthropic:claude-3-haiku
+```
 
 ---
 
@@ -143,9 +167,17 @@ Both agents rely on Retrieval-Augmented Generation (RAG) using a customizable, b
 ### User Chat Portals
 - **Employee Portal**:
   - Full access + history + source previews
+  - Chat response streaming enabled
 - **Customer Portal**:
   - Public access to approved content
   - Authenticated access to personal data
+
+### Chat UX Features
+- Streaming responses
+- Clickable citations
+- Thumbs up/down feedback
+- Full query history with timestamps
+- Optional filters, search, and starred chats
 
 ---
 
@@ -153,10 +185,14 @@ Both agents rely on Retrieval-Augmented Generation (RAG) using a customizable, b
 
 ### Tenancy
 - Single-tenant to start
-- Multi-tenant roadmap
+- Multi-tenant roadmap with Qdrant namespaces and DB tenant_id isolation
 
 ### Roles
 - Admin, Employee, Customer
+
+### Authentication
+- Email/password login with JWTs for prototype
+- Future: OAuth or SSO options
 
 ### Security
 - Encryption at rest + transit
@@ -206,6 +242,16 @@ Both agents rely on Retrieval-Augmented Generation (RAG) using a customizable, b
 ### Observability
 - Prometheus, Grafana, Loki (open source)
 - Logs for ingestion, errors, usage
+- Monitor:
+  - Query latency
+  - Retrieval hit/miss ratio
+  - Embedding model drift
+  - Chunk count per doc
+  - Ingestion failures
+
+### Performance Testing
+- Use Locust or k6 for concurrent chat testing
+- Use pytest for ingestion and embedding benchmarks
 
 ---
 
@@ -231,6 +277,10 @@ Both agents rely on Retrieval-Augmented Generation (RAG) using a customizable, b
 - **External API Lookups**
 - **Actionable Agents** (email, form-filling)
 - **AP2 protocol** support for chat-based payments
+- **SaaS Billing Roadmap**
+  - Stripe or Paddle integration
+  - Usage metering
+  - Tenant-specific limits
 
 ---
 
@@ -240,11 +290,24 @@ Both agents rely on Retrieval-Augmented Generation (RAG) using a customizable, b
 *Placeholder*
 
 ### B. Prompt Templates
-*Placeholder*
+See Section 6 for default system prompt
 
 ### C. Data Schemas
-*Placeholder*
+
+```json
+{
+  "Chunk": {
+    "id": "uuid",
+    "text": "string",
+    "embedding": "[float]",
+    "document_id": "uuid",
+    "tags": ["invoice", "confidential"],
+    "visibility": "employee | public | private",
+    "source_type": "gdrive | sql | s3",
+    "created_at": "timestamp"
+  }
+}
+```
 
 ### D. LLM Compatibility Matrix
 *Placeholder*
-
