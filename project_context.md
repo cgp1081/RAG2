@@ -41,7 +41,36 @@
 - `projectmanager.md`: Project Manager agent system prompt text.
 - `project_sequence.txt`: Sequenced plan, risks, briefs, JSON.
 - `project_context.md`: (this file) running summary for future collaborators.
+- `backend/` (P0-S1): FastAPI scaffold with structured logging, `/healthz`, configuration helpers, Dockerfile, docker-compose wiring, CI workflow, pytest + httpx tests.
+- `backend/db/` (P1-S1): SQLAlchemy declarative base, ORM models (tenant/source/document/chunk/ingestion run/event), session factory, Alembic environment and initial migration (`0001_initial`).
+- `backend/tests/test_migrations.py`, `backend/tests/test_models_relationships.py`: Regression coverage for Alembic upgrade and ORM relationships.
+- `alembic.ini`: Root Alembic configuration with `path_separator = os` to avoid prepend warning.
 
 ## Next Immediate Steps
-- Kick off Phase P0 Task P0-S1 using its handoff brief.
-- Track progress and surface any new assumptions or risks here to avoid repeated discovery.
+- Reference `project_sequence.txt` to select the next unblocked task (likely remaining Phase 1 decision work or Phase 2 foundations).
+- Keep this context updated with any new architectural decisions, schema changes, or deviations encountered during upcoming tasks.
+
+## Progress Log
+
+### 2025-09-20 — P0-S1: Backend Scaffold
+- Implemented FastAPI app factory (`backend/app/main.py`) with request ID middleware and structured logging via `structlog`.
+- Added `pydantic-settings`-based configuration (`backend/app/config.py`), including cached dependency injection and `.env` loading.
+- Authored health router and tests (`backend/app/routers/__init__.py`, `backend/tests/test_health.py`, `backend/tests/test_logging_request_id.py`).
+- Created developer tooling: `pyproject.toml`, `.env.example`, `docker-compose.yml`, `backend/Dockerfile`, CI workflow (`.github/workflows/ci.yml`).
+- Verified with `python3 -m ruff check backend`, `python3 -m pytest backend/tests`, and `docker compose up --build` (API served `/healthz`).
+
+### 2025-09-21 — P1-S1: Persistence & Migrations
+- Extended settings with `database_url`/`db_pool_size`; standardized DSNs on `postgresql+psycopg`.
+- Added SQLAlchemy base, models (`backend/db/models.py`), session factory (`backend/db/session.py`), and package exports.
+- Scaffolded Alembic (`alembic.ini`, `backend/db/migrations/env.py`, `backend/db/migrations/versions/0001_initial.py`) creating tenants/sources/documents/document_chunks/ingestion_runs/ingestion_events tables.
+- Introduced Postgres-backed tests validating migrations and ORM relationships with Alembic upgrade fixtures.
+- Updated project tooling and compose env vars to expose `DATABASE_URL` / `DB_POOL_SIZE`.
+- Applied migration to local Postgres via `DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/postgres python3 -m alembic upgrade head`.
+- Lint/tests executed: `python3 -m ruff check backend`, `python3 -m pytest backend/tests`.
+
+## Deviations & Notes
+- Test fixtures reuse the configured Postgres instance instead of creating per-test databases (original brief suggested ephemeral DBs). Document this if multi-tenant isolation becomes critical.
+- `documents.metadata` column stored under attribute `metadata_json` to avoid SQLAlchemy reserved-name conflict; accessor convenience not yet added.
+- Alembic CLI not on PATH; use `python3 -m alembic …` or install scripts locally.
+- PostgreSQL password resets may be required for local testing (`docker compose exec postgres psql -U postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';"`).
+- Remember to enable `pgcrypto` (or equivalent) if deploying to a new database so `gen_random_uuid()` works (see migration note).

@@ -1,4 +1,9 @@
-"""Application configuration powered by pydantic-settings."""
+"""Application configuration powered by pydantic-settings.
+
+The settings expose connectivity for the primary Postgres database used by the
+SQLAlchemy session factory. Future components should rely on
+``Settings.database_url`` rather than hard-coding URIs.
+"""
 from __future__ import annotations
 
 import os
@@ -7,7 +12,7 @@ from pathlib import Path
 from typing import Generator
 
 from dotenv import dotenv_values
-from pydantic import AnyHttpUrl
+from pydantic import AnyHttpUrl, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,9 +21,11 @@ class Settings(BaseSettings):
 
     app_env: str = "development"
     log_level: str = "INFO"
-    postgres_url: AnyHttpUrl | str = "postgresql://postgres:postgres@postgres:5432/postgres"
+    postgres_url: AnyHttpUrl | str = "postgresql+psycopg://postgres:postgres@postgres:5432/postgres"
     qdrant_url: AnyHttpUrl | str = "http://qdrant:6333"
     app_version: str = "0.1.0"
+    database_url: PostgresDsn | str = "postgresql+psycopg://postgres:postgres@postgres:5432/postgres"
+    db_pool_size: int = 10
 
     model_config = SettingsConfigDict(env_prefix="", extra="ignore", case_sensitive=False)
 
@@ -29,6 +36,10 @@ class Settings(BaseSettings):
         env_path = Path(".env")
         file_values = dotenv_values(str(env_path)) if env_path.exists() else {}
         merged = {**file_values, **os.environ}
+        if "DATABASE_URL" not in merged and "POSTGRES_URL" in merged:
+            merged["DATABASE_URL"] = merged["POSTGRES_URL"]
+        if "DB_POOL_SIZE" not in merged and "DATABASE_POOL_SIZE" in merged:
+            merged["DB_POOL_SIZE"] = merged["DATABASE_POOL_SIZE"]
         # BaseSettings will re-read the OS environment, so pass merged as data.
         return cls(**merged)
 

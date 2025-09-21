@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from backend.db.session import init_engine
+
 from .config import get_settings
 from .logging import RequestLoggingMiddleware, configure_logging
 from .routers import health_router
@@ -18,6 +20,7 @@ def create_app() -> FastAPI:
 
     settings = get_settings()
     configure_logging(settings.log_level)
+    init_engine(settings)
 
     app = FastAPI(title="RAG Platform API", version=settings.app_version)
     app.add_middleware(RequestLoggingMiddleware)
