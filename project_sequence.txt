@@ -1,0 +1,1714 @@
+**Global Roadmap**
+- **P0 Foundations**: Stand up FastAPI skeleton, env config, health/metrics plumbing. Success: `GET /healthz` + structured logging with request ids in CI. Cut line: app starts via `docker-compose up`, unit smoke passes.
+- **P1 Core Data Layer**: Postgres schema, migrations, session mgmt, Qdrant client + embedding wrapper. Success: migrations run clean; vectors round-trip to Qdrant. Cut line: automated tests persist/retrieve document + chunk rows with embeddings.
+- **P2 Ingestion MVP**: Local file CLI, chunking, dedup, ingestion status APIs. Success: sample PDF ingested once, metadata visible via API, dedup prevents duplicates. Cut line: `rag ingest-files` followed by `GET /admin/ingestion-runs` shows completed job.
+- **P3 Retrieval & RAG**: Retrieval service, prompt assembly, LLM orchestration with citations. Success: stored chunks retrieved with filters; RAG answers cite sources or say “I don’t know.” Cut line: automated test stubs embed + generate, verifying citation payload.
+- **P4 Chat Surface**: Chat API + minimal web UI. Success: browser chat sends query, receives grounded answer + citations. Cut line: Playwright smoke renders answer/“I don’t know.”
+- **P5 Structured Data Q&A**: CSV/table ingestion, guarded SQL, hybrid responses. Success: sample table ingested, SQL guard approves safe query, response returns rows + linked documents. Cut line: API returns filtered table answer and logs guard audit.
+- **P6 Observability & Eval**: Prom metrics, tracing hooks, retrieval eval harness. Success: `/metrics` exposes ingestion/retrieval timings; eval CLI emits precision/recall JSON. Cut line: golden dataset run produces scored report artifact.
+- **P7 Telephony Expansion**: Twilio webhook, STT/TTS orchestration, call analytics. Success: simulated webhook executes end-to-end flow, transcript stored, admin call log API lists session. Cut line: integration test drives Twilio payload through to stored transcript + response.
+
+**Dependency Map**
+- P1-S1 ← P0-S1 (needs runtime + config).
+- P1-S2 ← P0-S1, P1-S1 (shares config, depends on DB metadata).
+- P2-S1 ← P1-S1, P1-S2 (stores docs + vectors).
+- P2-S2 ← P2-S1 (reports ingestion state).
+- P3-S1 ← P2-S1, P1-S2 (requires chunks + vector client).
+- P3-S2 ← P3-S1 (needs retrieval service) and P1-S2 (embeddings).
+- P4-S1 ← P3-S2, P2-S2 (chat uses RAG + ingestion metadata).
+- P4-S2 ← P4-S1 (UI depends on API).
+- P5-S1 ← P1-S1, P2-S1 (schema + ingest infra).
+- P5-S2 ← P5-S1, P3-S1, P3-S2 (hybrid pipeline).
+- P6-S1 ← P4-S1, P2-S1, P3-S2 (instrumentation spans services).
+- P6-S2 ← P6-S1, P3-S2 (needs telemetry + RAG).
+- P7-S1 ← P6-S1, P4-S1, P3-S2 (voice uses RAG + observability).
+- P7-S2 ← P7-S1, P6-S1 (analytics needs voice + metrics).
+
+**Risk & Unknowns Log**
+- **Backend framework decision**: FastAPI assumed; confirm before coding. Mitigation: validate with engineering; fallback to Node per docs.
+- **Embedding/LLM availability**: Ollama models must run locally; ensure hardware + model selection. Mitigation: cache embeddings, allow OpenAI fallback.
+- **Vector DB hosting**: Qdrant self-host vs managed unsettled. Mitigation: start Docker container for dev, abstract config for future managed swap.
+- **SQL guardrails scope**: Policy depth (row-level filters, safe operators) not finalized. Mitigation: conservative allowlist; log assumptions.
+- **Telephony vendor**: Twilio/Deepgram assumed; final selection pending. Mitigation: isolate adapter layer; document replacements.
+- **Structured data scale**: CSV size limits unspecified. Mitigation: set MVP cap (e.g., 50MB) and stream ingestion; record assumption.
+- **Eval dataset ownership**: Source of golden questions TBD. Mitigation: seed synthetic examples, flag for product input.
+
+**Handoff Briefs**
+
+Task ID & Name: P0-S1 — Initialize repo, env config, health checks
+Why Now (Dependency Rationale): Establishes executable skeleton every later task extends.
+Goal (One Sentence, User-visible Outcome): Provide runnable FastAPI service with `/healthz` and structured logging via docker-compose.
+Scope: Create backend project layout, config loader, logging middleware, base docker-compose stack.
+In-Scope:
+- FastAPI app bootstrap with routers package
+- Config via `pydantic-settings` loading `.env`
+- Structured logging with request ids and JSON formatter
+- Docker Compose bringing up API + Postgres + Qdrant stubs
+- Basic CI workflow running lint + health test
+Out-of-Scope:
+- Authn/z flows
+- Database schema beyond connectivity smoke
+- Frontend assets
+Interfaces & Contracts
+APIs:
+- GET /healthz → 200 `{"status":"ok","app_version":...}`
+CLI:
+- None
+Background jobs:
+- None
+Files & Layout
+Existing to modify:
+- None
+New files:
+- `backend/app/main.py`
+- `backend/app/config.py`
+- `backend/app/logging.py`
+- `backend/app/__init__.py`
+- `backend/app/routers/__init__.py`
+- `docker-compose.yml`
+- `pyproject.toml`
+- `.env.example`
+- `.github/workflows/ci.yml`
+Data Model / Migrations: None (just connectivity smoke).
+Libraries/Dependencies: `fastapi`, `uvicorn[standard]`, `pydantic-settings`, `structlog`, `python-dotenv`.
+Env Vars & Config: `APP_ENV`, `LOG_LEVEL`, `POSTGRES_URL` (placeholder), `QDRANT_URL`.
+Acceptance Tests:
+- Given stack up, when GET /healthz, then status 200 with status `ok` and version present.
+- Given request, when served, then log line includes `request_id`, method, status.
+Non-Functional: Boot in <2s locally; lint + pytest stage passes in CI.
+Risks & Mitigations: FastAPI assumption may shift → isolate framework-specific code.
+Assumptions & Open Questions: Assuming Python 3.11 base image; confirm container runtime preference.
+Notes for Prompt Engineering Lead: Keep modules small; inject config via dependency overrides for tests.
+
+Task ID & Name: P1-S1 — Define metadata schema & migrations
+Why Now (Dependency Rationale): Required before storing docs or ingestion jobs.
+Goal (One Sentence, User-visible Outcome): Persist tenants, sources, documents, chunks, ingestion runs via Alembic migrations.
+Scope: Add SQLAlchemy models, migration env, session factory, migrations for tenant + document tables.
+In-Scope:
+- Alembic init + offline/online config
+- SQLAlchemy models for `tenants`, `sources`, `documents`, `document_chunks`, `ingestion_runs`
+- Session dependency for FastAPI
+- Seed migration and smoke test
+Out-of-Scope:
+- Structured tables (handled later)
+- Advanced indices or partitioning
+Interfaces & Contracts
+APIs:
+- None (service layer only)
+CLI:
+- `alembic upgrade head`
+Background jobs:
+- None
+Files & Layout
+Existing to modify:
+- `backend/app/config.py`
+New files:
+- `backend/db/__init__.py`
+- `backend/db/base.py`
+- `backend/db/models.py`
+- `backend/db/session.py`
+- `backend/db/migrations/env.py`
+- `backend/db/migrations/versions/0001_initial.py`
+- `alembic.ini`
+Data Model / Migrations: Create tables `tenants`, `sources`, `documents`, `document_chunks`, `ingestion_runs`, `ingestion_events`.
+Libraries/Dependencies: `sqlalchemy`, `alembic`, `psycopg[binary]`.
+Env Vars & Config: `DATABASE_URL`, `DB_POOL_SIZE`.
+Acceptance Tests:
+- Given migration runs, when querying information_schema, then required tables exist with expected columns.
+- Given session factory, when inserting document + chunk, then relationships persist.
+Non-Functional: Migration executes <5s; session pool surfaces 5xx errors with clarity.
+Risks & Mitigations: Schema scope creep → lock minimal columns, annotate TODOs for extras.
+Assumptions & Open Questions: Multi-tenant strategy = schema-per-tenant? assuming shared schema with tenant_id column; confirm later.
+Notes for Prompt Engineering Lead: Use SQLAlchemy declarative base; avoid circular imports by centralizing metadata.
+
+Task ID & Name: P1-S2 — Implement vector store client & embedding service base
+Why Now (Dependency Rationale): Needed before ingestion can persist embeddings.
+Goal (One Sentence, User-visible Outcome): Provide reusable Qdrant client wrapper and embedding adapter targeting Ollama.
+Scope: Abstractions for vector upsert/search, embedding HTTP client, retry + health checks.
+In-Scope:
+- Qdrant collection bootstrap per tenant
+- Embedding service hitting Ollama HTTP API with model fallback hooks
+- Interface definitions + unit tests with fakes
+- Configurable retries/backoff
+Out-of-Scope:
+- Retrieval scoring logic
+- Hybrid sparse search
+Interfaces & Contracts
+APIs:
+- None (internal services)
+CLI:
+- `poetry run python -m backend.tests.stub_embed` (dev util)
+Background jobs:
+- None
+Files & Layout
+Existing to modify:
+- `backend/app/config.py`
+New files:
+- `backend/services/__init__.py`
+- `backend/services/vector_store.py`
+- `backend/services/embedding_service.py`
+- `backend/services/exceptions.py`
+- `backend/tests/services/test_vector_store.py`
+Data Model / Migrations: None.
+Libraries/Dependencies: `qdrant-client`, `httpx`, `tenacity`.
+Env Vars & Config: `QDRANT_URL`, `QDRANT_API_KEY`, `EMBEDDING_MODEL`, `OLLAMA_BASE_URL`, `VECTOR_DIM`.
+Acceptance Tests:
+- Given Qdrant test container, when upserting embeddings, then subsequent search returns ids ordered by score.
+- Given Ollama stub down, when calling embedder, then fallback raises clear retryable error.
+Non-Functional: Vector ops complete <300ms in unit integration; embed call timeouts <10s.
+Risks & Mitigations: Ollama model mismatch → parameterize dims, validate on startup.
+Assumptions & Open Questions: Assuming qdrant collection schema: cosine distance, 1536 dims; confirm final model dimension.
+Notes for Prompt Engineering Lead: Keep clients pure; dependency inject httpx.AsyncClient for testability.
+
+Task ID & Name: P2-S1 — Implement document ingestion CLI & pipeline
+Why Now (Dependency Rationale): Enables first usable knowledge ingestion for MVP.
+Goal (One Sentence, User-visible Outcome): CLI ingests local files, chunks, dedups, saves metadata + embeddings.
+Scope: Typer CLI, chunker, dedup, pipeline writing to Postgres/Qdrant with ingestion job tracking.
+In-Scope:
+- CLI `rag ingest-files --path ./docs --tenant default`
+- Chunking via recursive splitter (~400 tokens) with overlap
+- SHA256 + cosine dedup
+- Job status updates in `ingestion_runs` and `ingestion_events`
+- Unit/integration tests with fixture documents
+Out-of-Scope:
+- Remote connectors (Drive/S3)
+- Scheduling/retry service
+Interfaces & Contracts
+APIs:
+- None
+CLI:
+- `rag ingest-files --path <dir> [--tenant <id>] [--infer-metadata]`
+Background jobs:
+- Optional worker stub invoked synchronously
+Files & Layout
+Existing to modify:
+- `backend/services/vector_store.py`
+- `backend/db/models.py`
+New files:
+- `backend/cli/__init__.py`
+- `backend/cli/ingest.py`
+- `backend/ingestion/__init__.py`
+- `backend/ingestion/chunker.py`
+- `backend/ingestion/dedup.py`
+- `backend/ingestion/pipeline.py`
+- `tests/ingestion/test_pipeline.py`
+Data Model / Migrations: Update models for ingestion events (if not in P1), add indexes on `documents.sha256`.
+Libraries/Dependencies: `typer`, `python-magic`, `tiktoken` (token counting).
+Env Vars & Config: `LOCAL_INGEST_ROOT`, `CHUNK_SIZE`, `CHUNK_OVERLAP`.
+Acceptance Tests:
+- Given sample PDF, when running CLI, then ingestion_run status becomes `completed` and chunks stored with metadata.
+- Given same file re-ingested, when pipeline executes, then no duplicate chunk vectors inserted (`document_chunks` count unchanged).
+Non-Functional: CLI completes <2m for 100 pages; pipeline idempotent on failure restart.
+Risks & Mitigations: Large files memory use → stream read pages; log skip on unsupported mime.
+Assumptions & Open Questions: Assuming text extraction uses `pypdf`; confirm licensing/performance.
+Notes for Prompt Engineering Lead: Structure pipeline functions pure; capture metrics hooks for later.
+
+Task ID & Name: P2-S2 — Expose ingestion status API
+Why Now (Dependency Rationale): Operators and UI need ingest visibility before chat surfaces.
+Goal (One Sentence, User-visible Outcome): REST endpoints list ingestion runs, documents, and per-doc status.
+Scope: FastAPI router, response schemas, auth stub, tests.
+In-Scope:
+- `GET /admin/ingestion-runs?tenant=` returning paginated runs
+- `GET /admin/documents?tenant=&status=` summarizing docs + source metadata
+- Simple API key auth stub (header) for admin routes
+Out-of-Scope:
+- Mutations (delete/retry)
+- Advanced filtering (dates, tags) beyond basics
+Interfaces & Contracts
+APIs:
+- GET /admin/ingestion-runs
+- GET /admin/documents
+CLI:
+- None
+Background jobs:
+- None
+Files & Layout
+Existing to modify:
+- `backend/app/main.py`
+- `backend/db/session.py`
+New files:
+- `backend/app/routers/ingestion.py`
+- `backend/app/schemas/ingestion.py`
+- `tests/api/test_ingestion_status.py`
+Data Model / Migrations: None (reads existing tables).
+Libraries/Dependencies: `fastapi-pagination` (optional).
+Env Vars & Config: `ADMIN_API_KEY`.
+Acceptance Tests:
+- Given existing ingestion run, when GET /admin/ingestion-runs, then response includes run_id, status, durations.
+- Given documents present, when GET /admin/documents?status=ready, then returns chunk count and last_ingested timestamps.
+Non-Functional: Endpoint responds <200ms for 100 runs; paginated 50/page.
+Risks & Mitigations: Authentication incomplete → stub flagged; ensure TODO for real auth.
+Assumptions & Open Questions: Assuming single admin key acceptable for MVP; confirm security posture.
+Notes for Prompt Engineering Lead: Reuse Pydantic models; avoid N+1 by eager-loading relationships.
+
+Task ID & Name: P3-S1 — Build retrieval service
+Why Now (Dependency Rationale): Core capability before LLM assembly.
+Goal (One Sentence, User-visible Outcome): Deterministic retrieval engine returning filtered chunks ordered by score.
+Scope: Retrieval module wrapping vector search, metadata filtering, scoring heuristics.
+In-Scope:
+- Service API `retrieve(query, tenant_id, filters, top_k)`
+- Support metadata filters on `source_type`, `tags`, `visibility_scope`
+- Score normalization + thresholding
+- Unit tests with fake vector store
+Out-of-Scope:
+- Hybrid sparse search
+- Reranking with LLM
+Interfaces & Contracts
+APIs:
+- None (internal module)
+CLI:
+- Debug command `rag debug-retrieve --query`
+Background jobs:
+- None
+Files & Layout
+Existing to modify:
+- `backend/services/vector_store.py`
+New files:
+- `backend/retrieval/__init__.py`
+- `backend/retrieval/service.py`
+- `backend/retrieval/models.py`
+- `tests/retrieval/test_service.py`
+Data Model / Migrations: None.
+Libraries/Dependencies: `numpy` (score normalization).
+Env Vars & Config: `RETRIEVAL_TOP_K_DEFAULT`, `RETRIEVAL_SCORE_FLOOR`.
+Acceptance Tests:
+- Given indexed chunks with metadata, when retrieving with filter `visibility_scope=employee`, then only matching chunks returned sorted by score.
+- Given low scores below floor, when retrieving, then empty list returned triggering fallback.
+Non-Functional: Retrieval latency <300ms for top_k=8.
+Risks & Mitigations: Score heuristics might underperform → log retrieval diagnostics per query.
+Assumptions & Open Questions: Assuming cosine similarity; confirm need for MMR or others.
+Notes for Prompt Engineering Lead: Keep pure function to allow offline eval; inject vector client.
+
+Task ID & Name: P3-S2 — Implement RAG response assembly
+Why Now (Dependency Rationale): Needed to deliver answers before exposing chat.
+Goal (One Sentence, User-visible Outcome): Compose prompts with retrieved context and produce cited answers via LLM abstraction.
+Scope: Pipeline orchestrator (intent: doc vs fallback), prompt templates, citation packaging.
+In-Scope:
+- `generate_answer(query, tenant_id)` orchestrating retrieval + prompt assembly
+- Prompt template with structured sections for context, instructions, citations
+- Citation object referencing document_id + chunk range
+- Handling no-context scenario -> “I don’t know”
+- Unit tests mocking retrieval + LLM
+Out-of-Scope:
+- Structured SQL branch (Phase P5)
+- Streaming SSE responses
+Interfaces & Contracts
+APIs:
+- None (service layer)
+CLI:
+- `rag dry-run --query "..."` prints prompt + answer (dev)
+Background jobs:
+- None
+Files & Layout
+Existing to modify:
+- `backend/retrieval/service.py` (integration)
+New files:
+- `backend/rag/__init__.py`
+- `backend/rag/pipeline.py`
+- `backend/rag/prompts.py`
+- `backend/rag/llm_client.py`
+- `tests/rag/test_pipeline.py`
+Data Model / Migrations: None.
+Libraries/Dependencies: `jinja2` (templating).
+Env Vars & Config: `LLM_MODEL`, `LLM_MAX_TOKENS`, `LLM_TIMEOUT`.
+Acceptance Tests:
+- Given retrieval returns context, when pipeline runs, then answer includes citation IDs matching retrieval items.
+- Given retrieval empty, when pipeline runs, then answer equals “I don’t know” and citations empty.
+Non-Functional: Pipeline end-to-end <1.2s using local stub; retries limited to 1.
+Risks & Mitigations: Prompt drift; store template path, add snapshot tests.
+Assumptions & Open Questions: Assuming single-step doc intent; confirm need for classification branch.
+Notes for Prompt Engineering Lead: Keep prompt content deterministic; log prompt/response ids for audit.
+
+Task ID & Name: P4-S1 — Expose chat API
+Why Now (Dependency Rationale): Enables UI + external clients to consume RAG.
+Goal (One Sentence, User-visible Outcome): Provide authenticated POST endpoint returning answer, citations, elapsed time.
+Scope: API router, request/response schemas, latency metric, tests.
+In-Scope:
+- `POST /chat/query` with payload `{tenant_id, query, metadata_filters}`
+- Response includes `{answer, citations[], token_usage, latency_ms}`
+- API key or bearer stub for single tenant
+- Error handling for timeouts/no context
+Out-of-Scope:
+- Conversation persistence
+- Streaming responses
+Interfaces & Contracts
+APIs:
+- POST /chat/query
+CLI:
+- None
+Background jobs:
+- None
+Files & Layout
+Existing to modify:
+- `backend/app/main.py`
+- `backend/rag/pipeline.py`
+New files:
+- `backend/app/routers/chat.py`
+- `backend/app/schemas/chat.py`
+- `tests/api/test_chat.py`
+Data Model / Migrations: None.
+Libraries/Dependencies: reuse existing.
+Env Vars & Config: `CHAT_MAX_TOKENS`, `CHAT_TIMEOUT`.
+Acceptance Tests:
+- Given valid query and context, when POST /chat/query, then response status 200 with non-empty answer + citations.
+- Given unknown answer, when POST, then response 200 with “I don’t know” and empty citations.
+Non-Functional: Endpoint p95 <1.5s; logs include request/trace ids.
+Risks & Mitigations: Rate limits missing → add TODO + acceptance test placeholder.
+Assumptions & Open Questions: Assuming single-tenant key guard acceptable; confirm auth plan.
+Notes for Prompt Engineering Lead: Use dependency overrides for pipeline in tests; capture metrics via middleware.
+
+Task ID & Name: P4-S2 — Deliver minimal chat UI
+Why Now (Dependency Rationale): Provides user-visible MVP experience once API ready.
+Goal (One Sentence, User-visible Outcome): Lightweight web chat that sends queries, displays answers/citations, and surfaces ingestion status link.
+Scope: Next.js app with chat panel, API proxy, environment config, tests.
+In-Scope:
+- Vercel-style Next.js project with single page chat
+- Components: message list, input box, citation panel linking to documents
+- Fetch wrapper handling latency + error snackbars
+- Basic Playwright smoke test
+Out-of-Scope:
+- Auth flows
+- Phone/voice UI
+Interfaces & Contracts
+APIs:
+- Calls backend `/chat/query` and `/admin/documents`
+CLI:
+- `npm run dev`, `npm run test`
+Background jobs:
+- None
+Files & Layout
+Existing to modify:
+- None
+New files:
+- `frontend/package.json`
+- `frontend/next.config.js`
+- `frontend/pages/index.tsx`
+- `frontend/components/ChatPanel.tsx`
+- `frontend/components/CitationList.tsx`
+- `frontend/lib/api.ts`
+- `frontend/styles/globals.css`
+- `frontend/tests/chat.spec.ts`
+- `frontend/.env.example`
+Data Model / Migrations: None.
+Libraries/Dependencies: `next`, `react`, `typescript`, `swr`, `playwright`.
+Env Vars & Config: `NEXT_PUBLIC_API_BASE_URL`.
+Acceptance Tests:
+- Given API mock returns answer, when user submits text, then UI renders assistant message + citation list.
+- Given API returns “I don’t know”, then UI displays fallback message with neutral styling.
+Non-Functional: Initial load <1s on local; lighthouse accessibility >=90.
+Risks & Mitigations: CORS issues → configure Next proxy in dev.
+Assumptions & Open Questions: Assuming Tailwind not required; simple CSS acceptable.
+Notes for Prompt Engineering Lead: Keep components simple; use hooks for data fetch and suspense.
+
+Task ID & Name: P5-S1 — Implement structured table ingestion
+Why Now (Dependency Rationale): Enables structured data Q&A roadmap.
+Goal (One Sentence, User-visible Outcome): Ingest CSV tables into normalized Postgres tables with metadata + profiles.
+Scope: CLI/worker to read CSV, infer schema, store rows + column metadata, attach to tenant.
+In-Scope:
+- `rag ingest-table --csv path --table-name` command
+- Schema inference (types, pk guess), store in `structured_tables`, `structured_columns`
+- Snapshot table rows (JSONB or row table) with versioning pointer
+- Column stats (count, null %, sample values)
+Out-of-Scope:
+- Direct DB connectors (Postgres/MySQL)
+- Scheduling (later)
+Interfaces & Contracts
+APIs:
+- None yet
+CLI:
+- `rag ingest-table --csv <file> --table-name <name> --tenant <id>`
+Background jobs:
+- Optional schedule stub for refresh (logged only)
+Files & Layout
+Existing to modify:
+- `backend/db/models.py`
+- `backend/cli/ingest.py`
+New files:
+- `backend/structured/__init__.py`
+- `backend/structured/ingest.py`
+- `backend/structured/schema_inference.py`
+- `backend/db/migrations/versions/0002_structured_tables.py`
+- `tests/structured/test_ingest.py`
+Data Model / Migrations: Add `structured_tables`, `structured_columns`, `structured_rows`, indexes on `(tenant_id, table_name)`.
+Libraries/Dependencies: `pandas` (or `polars`), `python-slugify`.
+Env Vars & Config: `STRUCTURED_MAX_ROWS` (ingestion cap), `STRUCTURED_SAMPLE_SIZE`.
+Acceptance Tests:
+- Given sample CSV, when ingest-table runs, then structured_tables row exists with column metadata and row count.
+- Given invalid CSV, when ingest-table runs, then ingestion_run marked failed with error stored.
+Non-Functional: Ingest 50k rows <3m; limit memory via chunked read.
+Risks & Mitigations: Memory blowups → process CSV with chunk size.
+Assumptions & Open Questions: Assuming storing rows as JSON acceptable for MVP; confirm need for normalized child tables.
+Notes for Prompt Engineering Lead: Keep ingest pure; surface validation errors with line numbers.
+
+Task ID & Name: P5-S2 — Enable guarded SQL Q&A & hybrid responses
+Why Now (Dependency Rationale): Delivers structured Q&A success metric.
+Goal (One Sentence, User-visible Outcome): Execute vetted SQL over structured tables, blend results into RAG responses with guardrails.
+Scope: SQL parser guard, query execution service, API endpoint, integration with RAG pipeline for mixed mode.
+In-Scope:
+- Guard rails using `sqlglot` to whitelist SELECT, aggregates, limit row counts
+- Service `execute_structured_query` returning rows + column metadata
+- Endpoint `POST /structured/query`
+- RAG pipeline branch detecting tabular intent, merging table summaries + document citations
+- Audit logging for structured queries
+Out-of-Scope:
+- Live DB connectors (only ingested snapshots)
+Interfaces & Contracts
+APIs:
+- POST /structured/query
+CLI:
+- `rag dry-run-sql --query <sql> --table <name>`
+Background jobs:
+- None
+Files & Layout
+Existing to modify:
+- `backend/rag/pipeline.py`
+- `backend/app/routers/chat.py`
+New files:
+- `backend/structured/query_service.py`
+- `backend/app/routers/structured.py`
+- `backend/app/schemas/structured.py`
+- `backend/db/migrations/versions/0003_structured_query_logs.py`
+- `tests/structured/test_query_service.py`
+- `tests/api/test_structured_query.py`
+Data Model / Migrations: Add `structured_query_logs` (query text, tenant_id, approval flag).
+Libraries/Dependencies: `sqlglot`, `numpy` (stats).
+Env Vars & Config: `SQL_QUERY_TIMEOUT`, `SQL_ALLOWED_FUNCTIONS`.
+Acceptance Tests:
+- Given safe SELECT with limit <=50, when POST /structured/query, then response returns rows + audit log entry.
+- Given disallowed statement (UPDATE or no LIMIT), when POST, then API responds 400 with guard message and no execution.
+Non-Functional: Query execution <1s for <10k rows; audit log write synchronous.
+Risks & Mitigations: Guard bypass risk → maintain allowlist, add unit tests for injection patterns.
+Assumptions & Open Questions: Intent detection via simple keywords; confirm need for ML classifier.
+Notes for Prompt Engineering Lead: Build guard as pure function; log executed SQL and sanitized params.
+
+Task ID & Name: P6-S1 — Establish observability baseline
+Why Now (Dependency Rationale): Needed before scaling traffic or adding voice.
+Goal (One Sentence, User-visible Outcome): Provide Prometheus metrics endpoint, tracing middleware, and structured logs across services.
+Scope: Metrics registry, middleware injecting trace/request ids, docker-compose updates for monitoring stack.
+In-Scope:
+- `/metrics` endpoint exposing HTTP latency, ingestion durations, RAG timings
+- OpenTelemetry tracing exporter (stdout or OTLP)
+- Logging middleware to append trace_id, tenant_id
+- Compose services for Prometheus + Loki + Grafana (if lightweight)
+Out-of-Scope:
+- Full alerting config
+Interfaces & Contracts
+APIs:
+- GET /metrics
+CLI:
+- `poetry run uvicorn ... --reload` instrumented (doc)
+Background jobs:
+- None
+Files & Layout
+Existing to modify:
+- `backend/app/main.py`
+- `backend/app/logging.py`
+- `docker-compose.yml`
+New files:
+- `backend/app/observability.py`
+- `backend/app/middleware/tracing.py`
+- `backend/tests/test_metrics.py`
+- `ops/prometheus/prometheus.yml`
+Data Model / Migrations: None.
+Libraries/Dependencies: `prometheus-client`, `opentelemetry-sdk`, `opentelemetry-instrumentation-fastapi`.
+Env Vars & Config: `OTEL_EXPORTER_OTLP_ENDPOINT`, `PROMETHEUS_PORT`, `TRACE_SAMPLE_RATE`.
+Acceptance Tests:
+- Given app running, when GET /metrics, then counters for chat requests and ingestion durations exist.
+- Given chat request, when processed, then trace_id logged and spans exported to test collector.
+Non-Functional: Metrics scrape <50ms; tracing overhead <5%.
+Risks & Mitigations: Observability stack heaviness → allow disabling via env flag.
+Assumptions & Open Questions: Assuming self-hosted Prometheus acceptable; confirm retention requirements.
+Notes for Prompt Engineering Lead: Keep instrumentation optional via config; guard imports for tests.
+
+Task ID & Name: P6-S2 — Implement retrieval evaluation harness
+Why Now (Dependency Rationale): Keeps quality measurable as features expand.
+Goal (One Sentence, User-visible Outcome): CLI + harness running golden dataset to emit precision/recall metrics and regression report.
+Scope: Dataset schema (YAML/JSON), harness executing retrieval + scoring, CI integration.
+In-Scope:
+- Dataset format: question, expected documents, acceptance text
+- Harness computing precision@k, citation coverage
+- CLI `rag eval --dataset path`
+- JSON report saved to `reports/last_eval.json`
+Out-of-Scope:
+- Automated scheduling in CI (manual trigger ok)
+Interfaces & Contracts
+APIs:
+- None
+CLI:
+- `rag eval --dataset datasets/example.yaml --tenant default`
+Background jobs:
+- None
+Files & Layout
+Existing to modify:
+- `backend/retrieval/service.py` (hooks)
+New files:
+- `backend/eval/__init__.py`
+- `backend/eval/harness.py`
+- `backend/eval/report.py`
+- `backend/eval/datasets/example.yaml`
+- `tests/eval/test_harness.py`
+Data Model / Migrations: None.
+Libraries/Dependencies: `pyyaml`, `pandas` (reporting), `rich` (terminal table).
+Env Vars & Config: `EVAL_TOP_K`, `EVAL_OUTPUT_DIR`.
+Acceptance Tests:
+- Given dataset with 1 question + expected doc id, when harness runs, then precision/recall computed accurately and report saved.
+- Given missing expected doc, when harness runs, then exit code ≠0 indicating regression.
+Non-Functional: Harness completes <60s for 50 questions.
+Risks & Mitigations: Golden data stale → timestamp dataset; add instructions to refresh quarterly.
+Assumptions & Open Questions: Synthetic dataset acceptable initially; confirm product-provided questions later.
+Notes for Prompt Engineering Lead: Keep harness deterministic; sort outputs before writing.
+
+Task ID & Name: P7-S1 — Implement telephony pipeline
+Why Now (Dependency Rationale): Achieves phone agent success metric after core MVP stable.
+Goal (One Sentence, User-visible Outcome): Twilio webhook processes calls via streaming STT, runs RAG, returns TTS response, logs session.
+Scope: Voice router, call handler, STT/TTS adapters, session state machine, retry logic.
+In-Scope:
+- `POST /voice/inbound` Twilio webhook returning TwiML to start media stream
+- Websocket/REST handler bridging Twilio stream → STT (Deepgram assumed) → RAG pipeline
+- TTS response streaming back or fallback to Twilio `<Say>`
+- Session persistence (call id, transcript, confidence) in DB
+Out-of-Scope:
+- Outbound dialing campaigns
+Interfaces & Contracts
+APIs:
+- POST /voice/inbound
+- POST /voice/events (Twilio status callbacks)
+CLI:
+- `rag voice-simulate --audio sample.wav`
+Background jobs:
+- `voice-call-runner` async task processing STT segments idempotently
+Files & Layout
+Existing to modify:
+- `backend/app/main.py`
+- `backend/db/models.py`
+New files:
+- `backend/voice/__init__.py`
+- `backend/voice/call_handler.py`
+- `backend/voice/stt_adapter.py`
+- `backend/voice/tts_adapter.py`
+- `backend/app/routers/voice.py`
+- `tests/voice/test_call_handler.py`
+Data Model / Migrations: Add `call_sessions`, `call_turns`, `call_recordings`.
+Libraries/Dependencies: `twilio`, `deepgram-sdk`, `aiofiles`.
+Env Vars & Config: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `VOICE_STT_API_KEY`, `VOICE_TTS_API_KEY`, `VOICE_CONFIDENCE_THRESHOLD`.
+Acceptance Tests:
+- Given simulated Twilio webhook payload, when handler invoked, then response TwiML contains stream instructions and session row created.
+- Given STT transcript chunk, when processed, then pipeline logs RAG answer and enqueues TTS response.
+Non-Functional: End-to-end round-trip <3s for short utterances; retries capped to 2.
+Risks & Mitigations: Vendor changes -> wrap adapters behind interface.
+Assumptions & Open Questions: Assuming Twilio Media Streams available; confirm region + compliance.
+Notes for Prompt Engineering Lead: Design adapters async; guard secrets; log call_id for traceability.
+
+Task ID & Name: P7-S2 — Add call review & analytics
+Why Now (Dependency Rationale): Completes telephony rollout with compliance + monitoring.
+Goal (One Sentence, User-visible Outcome): Store transcripts/audio, expose admin API summarizing calls, highlight escalations.
+Scope: Persistence for transcripts/audio URLs, API endpoints, dashboard-ready metrics.
+In-Scope:
+- Store full transcript, caller metadata, escalation flags in `call_sessions`
+- Persist audio to object storage (S3/MinIO) via signed URL
+- `GET /admin/calls` with filters (date, status)
+- Aggregated metrics (avg handle time, confidence)
+Out-of-Scope:
+- Frontend dashboards (only API)
+Interfaces & Contracts
+APIs:
+- GET /admin/calls
+- GET /admin/calls/{id}
+CLI:
+- `rag export-calls --from 2024-01-01`
+Background jobs:
+- Nightly summary job `voice-call-summary` (writes metrics table)
+Files & Layout
+Existing to modify:
+- `backend/app/main.py`
+- `backend/db/models.py`
+New files:
+- `backend/app/routers/calls.py`
+- `backend/app/schemas/calls.py`
+- `backend/voice/storage.py`
+- `backend/db/migrations/versions/0004_call_analytics.py`
+- `tests/api/test_calls_admin.py`
+Data Model / Migrations: Extend `call_sessions`, add `call_metrics_daily`.
+Libraries/Dependencies: `boto3` (if MinIO/S3), `pydantic` updates.
+Env Vars & Config: `CALL_STORAGE_BUCKET`, `CALL_SUMMARY_CRON`.
+Acceptance Tests:
+- Given call session with transcript, when GET /admin/calls, then response lists session with confidence + escalation flag.
+- Given audio upload stub, when storage adapter invoked, then presigned URL recorded and accessible.
+Non-Functional: API paginated 100/page, respond <300ms; storage uploads streamed.
+Risks & Mitigations: Storage compliance → ensure encryption, note TODO for retention policy.
+Assumptions & Open Questions: Assuming MinIO in docker acceptable; confirm retention + deletion requirements.
+Notes for Prompt Engineering Lead: Reuse existing admin auth; ensure personally identifiable info flagged.
+
+**Machine JSON**
+[
+  {
+    "id": "P0-S1",
+    "name": "Initialize repo, env config, health checks",
+    "phase": "P0",
+    "goal": "Create runnable FastAPI service skeleton with docker-compose, health endpoint, and structured logging.",
+    "depends_on": [],
+    "scope": {
+      "in_scope": [
+        "FastAPI app bootstrap with routers package",
+        "Config loader using pydantic-settings and .env",
+        "Structured logging middleware with request_id",
+        "Docker Compose for API, Postgres, Qdrant stubs",
+        "CI workflow running lint and health smoke"
+      ],
+      "out_of_scope": [
+        "Auth and RBAC",
+        "Database schema beyond connectivity tests",
+        "Frontend assets or build pipeline"
+      ]
+    },
+    "interfaces": {
+      "apis": [
+        {
+          "method": "GET",
+          "path": "/healthz"
+        },
+        {
+          "method": "GET",
+          "path": "/metrics"
+        }
+      ],
+      "cli": [],
+      "background_jobs": []
+    },
+    "files": {
+      "existing_to_touch": [],
+      "new_files": [
+        "backend/app/main.py",
+        "backend/app/config.py",
+        "backend/app/logging.py",
+        "backend/app/__init__.py",
+        "backend/app/routers/__init__.py",
+        "docker-compose.yml",
+        "pyproject.toml",
+        ".env.example",
+        ".github/workflows/ci.yml"
+      ]
+    },
+    "data_model_changes": [],
+    "third_party_libs": [
+      "fastapi",
+      "uvicorn[standard]",
+      "pydantic-settings",
+      "structlog"
+    ],
+    "env_vars": [
+      "APP_ENV",
+      "LOG_LEVEL",
+      "POSTGRES_URL",
+      "QDRANT_URL"
+    ],
+    "acceptance_tests": [
+      "Given stack up, when GET /healthz, then 200 with status 'ok' and version present",
+      "Given request handled, then log line includes request_id, method, status"
+    ],
+    "telemetry": [
+      "Metric: http_request_duration_seconds{path='/healthz'}",
+      "Log: request_id assigned per request"
+    ],
+    "risks": [
+      "Framework choice may change from FastAPI"
+    ],
+    "fallback": "If FastAPI rejected, scaffold equivalent in chosen framework with same interfaces.",
+    "notes_for_prompt_engineer": "Keep modules small; inject config for tests; prefer async FastAPI patterns."
+  },
+  {
+    "id": "P1-S1",
+    "name": "Define metadata schema & migrations",
+    "phase": "P1",
+    "goal": "Add SQLAlchemy models and Alembic migrations for tenants, sources, documents, chunks, and ingestion runs.",
+    "depends_on": [
+      "P0-S1"
+    ],
+    "scope": {
+      "in_scope": [
+        "Initialize Alembic project",
+        "Define SQLAlchemy models for core ingestion tables",
+        "Provide session factory for FastAPI dependencies",
+        "Create initial migration with indexes",
+        "Add migration smoke tests"
+      ],
+      "out_of_scope": [
+        "Structured tables schema",
+        "Advanced indexing or partitioning",
+        "Multi-tenant schema sharding"
+      ]
+    },
+    "interfaces": {
+      "apis": [],
+      "cli": [
+        "alembic upgrade head"
+      ],
+      "background_jobs": []
+    },
+    "files": {
+      "existing_to_touch": [
+        "backend/app/config.py"
+      ],
+      "new_files": [
+        "backend/db/__init__.py",
+        "backend/db/base.py",
+        "backend/db/models.py",
+        "backend/db/session.py",
+        "backend/db/migrations/env.py",
+        "backend/db/migrations/versions/0001_initial.py",
+        "alembic.ini"
+      ]
+    },
+    "data_model_changes": [
+      "Create tables tenants, sources, documents, document_chunks, ingestion_runs, ingestion_events"
+    ],
+    "third_party_libs": [
+      "sqlalchemy",
+      "alembic",
+      "psycopg[binary]"
+    ],
+    "env_vars": [
+      "DATABASE_URL",
+      "DB_POOL_SIZE"
+    ],
+    "acceptance_tests": [
+      "Given migration runs, when inspecting information_schema, required tables and columns exist",
+      "Given session factory, insert document and chunk persists with relationships"
+    ],
+    "telemetry": [
+      "Metric: db_connection_pool_acquired",
+      "Log: migration_version applied"
+    ],
+    "risks": [
+      "Tenant isolation approach may change"
+    ],
+    "fallback": "If schema decisions blocked, create minimal tables with tenant_id columns and document placeholder fields.",
+    "notes_for_prompt_engineer": "Centralize Base metadata; avoid circular imports; keep migrations deterministic."
+  },
+  {
+    "id": "P1-S2",
+    "name": "Implement vector store client & embedding service",
+    "phase": "P1",
+    "goal": "Provide Qdrant wrapper and embedding adapter targeting Ollama with retries and health checks.",
+    "depends_on": [
+      "P0-S1",
+      "P1-S1"
+    ],
+    "scope": {
+      "in_scope": [
+        "Qdrant client abstraction for collection init, upsert, search, delete",
+        "Embedding service calling Ollama HTTP API with retries",
+        "Configuration for model name, vector dimension",
+        "Unit tests using fake Qdrant and embedder",
+        "Health check utilities"
+      ],
+      "out_of_scope": [
+        "Hybrid sparse retrieval",
+        "Advanced reranking",
+        "Batch ingestion orchestration"
+      ]
+    },
+    "interfaces": {
+      "apis": [],
+      "cli": [
+        "poetry run python -m backend.services.vector_store --check"
+      ],
+      "background_jobs": []
+    },
+    "files": {
+      "existing_to_touch": [
+        "backend/app/config.py"
+      ],
+      "new_files": [
+        "backend/services/__init__.py",
+        "backend/services/vector_store.py",
+        "backend/services/embedding_service.py",
+        "backend/services/exceptions.py",
+        "backend/tests/services/test_vector_store.py"
+      ]
+    },
+    "data_model_changes": [],
+    "third_party_libs": [
+      "qdrant-client",
+      "httpx",
+      "tenacity"
+    ],
+    "env_vars": [
+      "QDRANT_URL",
+      "QDRANT_API_KEY",
+      "EMBEDDING_MODEL",
+      "OLLAMA_BASE_URL",
+      "VECTOR_DIM"
+    ],
+    "acceptance_tests": [
+      "Given Qdrant test container, storing embeddings and searching returns ordered ids",
+      "Given Ollama endpoint unavailable, embedder raises retryable error with clear message"
+    ],
+    "telemetry": [
+      "Metric: vector_upsert_latency_seconds",
+      "Log: embedding_model selected per tenant"
+    ],
+    "risks": [
+      "Embedding model dimension mismatch",
+      "Local Ollama availability issues"
+    ],
+    "fallback": "If Ollama unavailable, use sentence-transformers as temporary embedder with noted dimension change.",
+    "notes_for_prompt_engineer": "Design async-safe interfaces; inject http clients for testability; keep vector schema configurable."
+  },
+  {
+    "id": "P2-S1",
+    "name": "Implement document ingestion CLI & pipeline",
+    "phase": "P2",
+    "goal": "Deliver CLI-driven pipeline that ingests local files, chunks, deduplicates, and stores metadata plus embeddings.",
+    "depends_on": [
+      "P1-S1",
+      "P1-S2"
+    ],
+    "scope": {
+      "in_scope": [
+        "Typer CLI command rag ingest-files",
+        "Recursive text splitting with overlap",
+        "SHA256 and cosine deduplication",
+        "Ingestion run tracking with events and statuses",
+        "Integration tests covering happy path and re-ingest"
+      ],
+      "out_of_scope": [
+        "Remote connectors (Drive, S3)",
+        "Scheduling or background workers",
+        "Document tagging UI"
+      ]
+    },
+    "interfaces": {
+      "apis": [],
+      "cli": [
+        "rag ingest-files --path <dir> --tenant <id>"
+      ],
+      "background_jobs": [
+        "ingestion_pipeline (synchronous job wrapper)"
+      ]
+    },
+    "files": {
+      "existing_to_touch": [
+        "backend/services/vector_store.py",
+        "backend/db/models.py"
+      ],
+      "new_files": [
+        "backend/cli/__init__.py",
+        "backend/cli/ingest.py",
+        "backend/ingestion/__init__.py",
+        "backend/ingestion/chunker.py",
+        "backend/ingestion/dedup.py",
+        "backend/ingestion/pipeline.py",
+        "tests/ingestion/test_pipeline.py"
+      ]
+    },
+    "data_model_changes": [
+      "Add indexes on documents.sha256 and document_chunks.document_id",
+      "Ensure ingestion_events table records status transitions"
+    ],
+    "third_party_libs": [
+      "typer",
+      "python-magic",
+      "tiktoken"
+    ],
+    "env_vars": [
+      "LOCAL_INGEST_ROOT",
+      "CHUNK_SIZE",
+      "CHUNK_OVERLAP"
+    ],
+    "acceptance_tests": [
+      "Given sample PDF, when running CLI, ingestion_run status becomes completed and chunks stored with metadata",
+      "Given same file re-ingested, chunk count remains unchanged proving deduplication"
+    ],
+    "telemetry": [
+      "Metric: ingestion_duration_seconds",
+      "Log: ingestion_job_id with status transitions"
+    ],
+    "risks": [
+      "Large file memory usage",
+      "Unsupported file type failures"
+    ],
+    "fallback": "Skip unsupported files with logged warnings and mark run partial_success.",
+    "notes_for_prompt_engineer": "Structure pipeline as composable steps; avoid side effects in chunker for testability."
+  },
+  {
+    "id": "P2-S2",
+    "name": "Expose ingestion status API",
+    "phase": "P2",
+    "goal": "Surface ingestion runs and document readiness via authenticated REST endpoints.",
+    "depends_on": [
+      "P2-S1"
+    ],
+    "scope": {
+      "in_scope": [
+        "FastAPI router for admin ingestion endpoints",
+        "Pydantic response schemas with pagination metadata",
+        "Admin API key middleware",
+        "Unit tests mocking DB session"
+      ],
+      "out_of_scope": [
+        "Retry or delete ingestion actions",
+        "Advanced filtering by tags or connectors",
+        "Frontend UI"
+      ]
+    },
+    "interfaces": {
+      "apis": [
+        {
+          "method": "GET",
+          "path": "/admin/ingestion-runs"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/documents"
+        }
+      ],
+      "cli": [],
+      "background_jobs": []
+    },
+    "files": {
+      "existing_to_touch": [
+        "backend/app/main.py",
+        "backend/db/session.py"
+      ],
+      "new_files": [
+        "backend/app/routers/ingestion.py",
+        "backend/app/schemas/ingestion.py",
+        "tests/api/test_ingestion_status.py"
+      ]
+    },
+    "data_model_changes": [],
+    "third_party_libs": [
+      "fastapi-pagination"
+    ],
+    "env_vars": [
+      "ADMIN_API_KEY"
+    ],
+    "acceptance_tests": [
+      "Given ingestion run exists, GET /admin/ingestion-runs returns run_id, status, started_at, finished_at",
+      "Given documents present, GET /admin/documents?status=ready returns entries with chunk_count and last_ingested"
+    ],
+    "telemetry": [
+      "Metric: api_request_duration_seconds{path='/admin/ingestion-runs'}",
+      "Log: admin_request with tenant_id and status"
+    ],
+    "risks": [
+      "Admin auth stub insufficient for production"
+    ],
+    "fallback": "If auth design pending, gate endpoints behind feature flag and log warning.",
+    "notes_for_prompt_engineer": "Use dependency injection for DB session; avoid N+1 by eager loading."
+  },
+  {
+    "id": "P3-S1",
+    "name": "Build retrieval service",
+    "phase": "P3",
+    "goal": "Implement retrieval layer returning filtered, scored chunks for downstream RAG pipeline.",
+    "depends_on": [
+      "P1-S2",
+      "P2-S1"
+    ],
+    "scope": {
+      "in_scope": [
+        "Service API for retrieve(query, tenant_id, filters, top_k)",
+        "Metadata filtering on visibility scope, source type, tags",
+        "Score normalization and floor threshold",
+        "Unit tests with mocked vector client"
+      ],
+      "out_of_scope": [
+        "Hybrid sparse retrieval",
+        "Reranking models",
+        "Structured SQL retrieval"
+      ]
+    },
+    "interfaces": {
+      "apis": [],
+      "cli": [
+        "rag debug-retrieve --query \"...\""
+      ],
+      "background_jobs": []
+    },
+    "files": {
+      "existing_to_touch": [
+        "backend/services/vector_store.py"
+      ],
+      "new_files": [
+        "backend/retrieval/__init__.py",
+        "backend/retrieval/service.py",
+        "backend/retrieval/models.py",
+        "tests/retrieval/test_service.py"
+      ]
+    },
+    "data_model_changes": [],
+    "third_party_libs": [
+      "numpy"
+    ],
+    "env_vars": [
+      "RETRIEVAL_TOP_K_DEFAULT",
+      "RETRIEVAL_SCORE_FLOOR"
+    ],
+    "acceptance_tests": [
+      "Given chunks with metadata, retrieve returns only employee-scope items when filter applied",
+      "Given scores below floor, retrieve returns empty list triggering fallback"
+    ],
+    "telemetry": [
+      "Metric: retrieval_latency_seconds",
+      "Log: retrieval_debug with top scores"
+    ],
+    "risks": [
+      "Score threshold tuning uncertainty"
+    ],
+    "fallback": "If scoring unstable, expose config via env and log raw scores for tuning.",
+    "notes_for_prompt_engineer": "Keep function pure; return deterministic ordering."
+  },
+  {
+    "id": "P3-S2",
+    "name": "Implement RAG response assembly",
+    "phase": "P3",
+    "goal": "Combine retrieval results with prompt templates to produce cited LLM answers.",
+    "depends_on": [
+      "P3-S1",
+      "P1-S2"
+    ],
+    "scope": {
+      "in_scope": [
+        "Pipeline orchestrator generate_answer",
+        "Prompt template with deterministic sections",
+        "Citation packaging referencing document_id and chunk offsets",
+        "Fallback to \"I don't know\" when retrieval empty",
+        "Unit tests mocking retrieval and LLM"
+      ],
+      "out_of_scope": [
+        "Structured SQL branch",
+        "Streaming responses",
+        "Feedback logging"
+      ]
+    },
+    "interfaces": {
+      "apis": [],
+      "cli": [
+        "rag dry-run --query \"...\""
+      ],
+      "background_jobs": []
+    },
+    "files": {
+      "existing_to_touch": [
+        "backend/retrieval/service.py"
+      ],
+      "new_files": [
+        "backend/rag/__init__.py",
+        "backend/rag/pipeline.py",
+        "backend/rag/prompts.py",
+        "backend/rag/llm_client.py",
+        "tests/rag/test_pipeline.py"
+      ]
+    },
+    "data_model_changes": [],
+    "third_party_libs": [
+      "jinja2"
+    ],
+    "env_vars": [
+      "LLM_MODEL",
+      "LLM_MAX_TOKENS",
+      "LLM_TIMEOUT"
+    ],
+    "acceptance_tests": [
+      "Given retrieval returns context, pipeline returns answer with citation ids matching retrieval",
+      "Given no retrieval context, pipeline responds 'I don't know' with empty citations"
+    ],
+    "telemetry": [
+      "Metric: rag_response_latency_seconds",
+      "Log: rag_pipeline_result with citation count"
+    ],
+    "risks": [
+      "Prompt drift causing nondeterministic output"
+    ],
+    "fallback": "If LLM fails, return structured fallback message and flag run for retry.",
+    "notes_for_prompt_engineer": "Store prompt templates versioned; keep pipeline pure with dependency injection."
+  },
+  {
+    "id": "P4-S1",
+    "name": "Expose chat API",
+    "phase": "P4",
+    "goal": "Expose POST /chat/query returning grounded answers, citations, and latency metadata.",
+    "depends_on": [
+      "P3-S2",
+      "P2-S2"
+    ],
+    "scope": {
+      "in_scope": [
+        "Chat router and Pydantic schemas",
+        "Latency measurement and token usage fields",
+        "API key/bearer stub for auth",
+        "Error handling for timeouts and empty answers",
+        "Integration tests with mocked pipeline"
+      ],
+      "out_of_scope": [
+        "Conversation history persistence",
+        "Streaming SSE or websockets",
+        "Rate limiting"
+      ]
+    },
+    "interfaces": {
+      "apis": [
+        {
+          "method": "POST",
+          "path": "/chat/query"
+        }
+      ],
+      "cli": [],
+      "background_jobs": []
+    },
+    "files": {
+      "existing_to_touch": [
+        "backend/app/main.py",
+        "backend/rag/pipeline.py"
+      ],
+      "new_files": [
+        "backend/app/routers/chat.py",
+        "backend/app/schemas/chat.py",
+        "tests/api/test_chat.py"
+      ]
+    },
+    "data_model_changes": [],
+    "third_party_libs": [],
+    "env_vars": [
+      "CHAT_MAX_TOKENS",
+      "CHAT_TIMEOUT",
+      "CHAT_API_KEY"
+    ],
+    "acceptance_tests": [
+      "Given valid query with context, POST /chat/query returns 200 with answer and citations array",
+      "Given query with no context, response contains 'I don't know' and empty citations"
+    ],
+    "telemetry": [
+      "Metric: chat_request_latency_seconds",
+      "Log: chat_query trace with tenant_id"
+    ],
+    "risks": [
+      "Auth stub insufficient for production security"
+    ],
+    "fallback": "If auth design blocked, limit endpoint to localhost and log warning.",
+    "notes_for_prompt_engineer": "Structure endpoint thin; pipeline injection via Depends for test override."
+  },
+  {
+    "id": "P4-S2",
+    "name": "Deliver minimal chat UI",
+    "phase": "P4",
+    "goal": "Ship Next.js web chat that sends queries to backend and renders answers with citations.",
+    "depends_on": [
+      "P4-S1"
+    ],
+    "scope": {
+      "in_scope": [
+        "Next.js project with chat page",
+        "Message list, input box, citation drawer components",
+        "Fetch wrapper handling errors and loading state",
+        "Playwright smoke test for query flow",
+        "Basic styling with CSS modules"
+      ],
+      "out_of_scope": [
+        "User authentication",
+        "Advanced UI theming",
+        "Voice features"
+      ]
+    },
+    "interfaces": {
+      "apis": [
+        {
+          "method": "POST",
+          "path": "/chat/query"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/documents"
+        }
+      ],
+      "cli": [
+        "npm run dev",
+        "npm run test"
+      ],
+      "background_jobs": []
+    },
+    "files": {
+      "existing_to_touch": [],
+      "new_files": [
+        "frontend/package.json",
+        "frontend/next.config.js",
+        "frontend/pages/index.tsx",
+        "frontend/components/ChatPanel.tsx",
+        "frontend/components/CitationList.tsx",
+        "frontend/lib/api.ts",
+        "frontend/styles/globals.css",
+        "frontend/tests/chat.spec.ts",
+        "frontend/.env.example"
+      ]
+    },
+    "data_model_changes": [],
+    "third_party_libs": [
+      "next",
+      "react",
+      "swr",
+      "playwright"
+    ],
+    "env_vars": [
+      "NEXT_PUBLIC_API_BASE_URL"
+    ],
+    "acceptance_tests": [
+      "Given mocked API returning answer, Playwright test submits query and renders assistant response with citations",
+      "Given API returns 'I don't know', UI shows fallback message without crashing"
+    ],
+    "telemetry": [
+      "Metric: frontend_query_latency_ms (reported via log/telemetry hook)",
+      "Log: frontend_error with endpoint and status"
+    ],
+    "risks": [
+      "CORS misconfiguration between frontend and backend"
+    ],
+    "fallback": "If proxy setup blocked, use Next rewrites or local dev proxy for interim.",
+    "notes_for_prompt_engineer": "Keep components functional; centralize API calls; TypeScript strict mode."
+  },
+  {
+    "id": "P5-S1",
+    "name": "Implement structured table ingestion",
+    "phase": "P5",
+    "goal": "Ingest CSV tables into normalized structured_tables schema with metadata and profiling.",
+    "depends_on": [
+      "P1-S1",
+      "P2-S1"
+    ],
+    "scope": {
+      "in_scope": [
+        "CLI rag ingest-table for CSV",
+        "Schema inference for column types and primary keys",
+        "Persist structured_tables, structured_columns, structured_rows",
+        "Column statistics (null ratio, sample values)",
+        "Tests covering happy path and failure cases"
+      ],
+      "out_of_scope": [
+        "Direct database connectors",
+        "Automated refresh scheduling",
+        "UI for schema overrides"
+      ]
+    },
+    "interfaces": {
+      "apis": [],
+      "cli": [
+        "rag ingest-table --csv <file> --table-name <name> --tenant <id>"
+      ],
+      "background_jobs": [
+        "structured_ingest_runner (sync)"
+      ]
+    },
+    "files": {
+      "existing_to_touch": [
+        "backend/db/models.py",
+        "backend/cli/ingest.py"
+      ],
+      "new_files": [
+        "backend/structured/__init__.py",
+        "backend/structured/ingest.py",
+        "backend/structured/schema_inference.py",
+        "backend/db/migrations/versions/0002_structured_tables.py",
+        "tests/structured/test_ingest.py"
+      ]
+    },
+    "data_model_changes": [
+      "Create structured_tables, structured_columns, structured_rows tables with tenant scoping"
+    ],
+    "third_party_libs": [
+      "pandas",
+      "python-slugify"
+    ],
+    "env_vars": [
+      "STRUCTURED_MAX_ROWS",
+      "STRUCTURED_SAMPLE_SIZE"
+    ],
+    "acceptance_tests": [
+      "Given sample CSV, ingest-table creates structured_tables row with column metadata and row count",
+      "Given malformed CSV, ingestion run marked failed with error recorded"
+    ],
+    "telemetry": [
+      "Metric: structured_ingest_duration_seconds",
+      "Log: structured_ingest status with table_name"
+    ],
+    "risks": [
+      "Large CSV could exhaust memory"
+    ],
+    "fallback": "Stream CSV in chunks; if limit exceeded, abort with partial status and guidance.",
+    "notes_for_prompt_engineer": "Use chunked pandas read; ensure transactional writes per batch."
+  },
+  {
+    "id": "P5-S2",
+    "name": "Enable guarded SQL Q&A & hybrid responses",
+    "phase": "P5",
+    "goal": "Execute vetted SQL over structured tables and integrate results into RAG answers with audit logging.",
+    "depends_on": [
+      "P5-S1",
+      "P3-S1",
+      "P3-S2"
+    ],
+    "scope": {
+      "in_scope": [
+        "SQL guard using sqlglot for whitelist checks",
+        "Structured query execution service with row limit enforcement",
+        "POST /structured/query endpoint with audit logging",
+        "RAG pipeline branch merging table summaries + document citations",
+        "Unit and integration tests for guardrails"
+      ],
+      "out_of_scope": [
+        "Live database connectors",
+        "Advanced analytics or joins across tables",
+        "User-facing UI"
+      ]
+    },
+    "interfaces": {
+      "apis": [
+        {
+          "method": "POST",
+          "path": "/structured/query"
+        }
+      ],
+      "cli": [
+        "rag dry-run-sql --query <sql> --table <name>"
+      ],
+      "background_jobs": []
+    },
+    "files": {
+      "existing_to_touch": [
+        "backend/rag/pipeline.py",
+        "backend/app/routers/chat.py"
+      ],
+      "new_files": [
+        "backend/structured/query_service.py",
+        "backend/app/routers/structured.py",
+        "backend/app/schemas/structured.py",
+        "backend/db/migrations/versions/0003_structured_query_logs.py",
+        "tests/structured/test_query_service.py",
+        "tests/api/test_structured_query.py"
+      ]
+    },
+    "data_model_changes": [
+      "Create structured_query_logs table recording tenant_id, query_text, status, created_at"
+    ],
+    "third_party_libs": [
+      "sqlglot",
+      "numpy"
+    ],
+    "env_vars": [
+      "SQL_QUERY_TIMEOUT",
+      "SQL_ALLOWED_FUNCTIONS"
+    ],
+    "acceptance_tests": [
+      "Given safe SELECT with LIMIT, POST /structured/query returns rows and logs entry",
+      "Given disallowed query (UPDATE or no LIMIT), endpoint responds 400 and logs rejection"
+    ],
+    "telemetry": [
+      "Metric: structured_query_latency_seconds",
+      "Log: structured_query_guard_decision with reason"
+    ],
+    "risks": [
+      "Guard may miss edge-case injections"
+    ],
+    "fallback": "Default to deny on parse errors; require manual override per table.",
+    "notes_for_prompt_engineer": "Implement guard as pure validator; provide clear error messages to caller."
+  },
+  {
+    "id": "P6-S1",
+    "name": "Establish observability baseline",
+    "phase": "P6",
+    "goal": "Expose metrics and tracing across services with configurable exporters.",
+    "depends_on": [
+      "P4-S1",
+      "P2-S1",
+      "P3-S2"
+    ],
+    "scope": {
+      "in_scope": [
+        "Prometheus metrics endpoint including chat, ingestion, retrieval counters",
+        "OpenTelemetry tracing middleware and exporter config",
+        "Log enrichment with trace_id and tenant_id",
+        "Compose updates for Prometheus/Grafana or OTLP collector",
+        "Tests validating metrics output"
+      ],
+      "out_of_scope": [
+        "Alerting rules",
+        "Full logging stack management"
+      ]
+    },
+    "interfaces": {
+      "apis": [
+        {
+          "method": "GET",
+          "path": "/metrics"
+        }
+      ],
+      "cli": [],
+      "background_jobs": []
+    },
+    "files": {
+      "existing_to_touch": [
+        "backend/app/main.py",
+        "backend/app/logging.py",
+        "docker-compose.yml"
+      ],
+      "new_files": [
+        "backend/app/observability.py",
+        "backend/app/middleware/tracing.py",
+        "backend/tests/test_metrics.py",
+        "ops/prometheus/prometheus.yml"
+      ]
+    },
+    "data_model_changes": [],
+    "third_party_libs": [
+      "prometheus-client",
+      "opentelemetry-sdk",
+      "opentelemetry-instrumentation-fastapi"
+    ],
+    "env_vars": [
+      "OTEL_EXPORTER_OTLP_ENDPOINT",
+      "PROMETHEUS_PORT",
+      "TRACE_SAMPLE_RATE"
+    ],
+    "acceptance_tests": [
+      "Given app running, GET /metrics exposes chat_request_latency_seconds and ingestion_duration_seconds",
+      "Given chat request processed, tracing span emitted with status, verified via test collector"
+    ],
+    "telemetry": [
+      "Metric: chat_request_latency_seconds",
+      "Metric: ingestion_duration_seconds",
+      "Log: trace_id appended to structured logs"
+    ],
+    "risks": [
+      "Observability stack overhead in dev"
+    ],
+    "fallback": "Allow disabling exporters via env flags for lightweight dev runs.",
+    "notes_for_prompt_engineer": "Instrument via middleware; guard optional imports for tests."
+  },
+  {
+    "id": "P6-S2",
+    "name": "Implement retrieval evaluation harness",
+    "phase": "P6",
+    "goal": "Provide CLI harness scoring retrieval precision/recall using golden dataset.",
+    "depends_on": [
+      "P6-S1",
+      "P3-S2"
+    ],
+    "scope": {
+      "in_scope": [
+        "Dataset schema (YAML) defining questions and expected doc_ids",
+        "Harness executing retrieval and scoring metrics",
+        "CLI rag eval writing JSON report to reports/",
+        "Tests covering metric calculations and failure cases"
+      ],
+      "out_of_scope": [
+        "Automated CI integration",
+        "Advanced analytics dashboards"
+      ]
+    },
+    "interfaces": {
+      "apis": [],
+      "cli": [
+        "rag eval --dataset backend/eval/datasets/example.yaml --tenant default"
+      ],
+      "background_jobs": []
+    },
+    "files": {
+      "existing_to_touch": [
+        "backend/retrieval/service.py"
+      ],
+      "new_files": [
+        "backend/eval/__init__.py",
+        "backend/eval/harness.py",
+        "backend/eval/report.py",
+        "backend/eval/datasets/example.yaml",
+        "tests/eval/test_harness.py"
+      ]
+    },
+    "data_model_changes": [],
+    "third_party_libs": [
+      "pyyaml",
+      "pandas",
+      "rich"
+    ],
+    "env_vars": [
+      "EVAL_TOP_K",
+      "EVAL_OUTPUT_DIR"
+    ],
+    "acceptance_tests": [
+      "Given dataset with expected doc, harness outputs precision/recall and saves report JSON",
+      "Given missing expected doc, harness exits non-zero signaling regression"
+    ],
+    "telemetry": [
+      "Metric: eval_run_duration_seconds",
+      "Log: eval_report_path with metrics summary"
+    ],
+    "risks": [
+      "Golden dataset may become stale"
+    ],
+    "fallback": "Seed synthetic dataset and mark TODO to replace with product-approved set.",
+    "notes_for_prompt_engineer": "Make harness deterministic; sort outputs before writing."
+  },
+  {
+    "id": "P7-S1",
+    "name": "Implement telephony pipeline",
+    "phase": "P7",
+    "goal": "Integrate Twilio webhook with streaming STT/TTS to run RAG responses for phone calls.",
+    "depends_on": [
+      "P6-S1",
+      "P4-S1",
+      "P3-S2"
+    ],
+    "scope": {
+      "in_scope": [
+        "Twilio webhook endpoint returning TwiML start stream",
+        "STT adapter (Deepgram assumed) handling streaming transcripts",
+        "Call session persistence with transcript + confidence",
+        "TTS adapter synthesizing responses back to caller",
+        "Integration tests simulating webhook payload"
+      ],
+      "out_of_scope": [
+        "Outbound dialing or campaign management",
+        "Advanced escalation routing UI"
+      ]
+    },
+    "interfaces": {
+      "apis": [
+        {
+          "method": "POST",
+          "path": "/voice/inbound"
+        },
+        {
+          "method": "POST",
+          "path": "/voice/events"
+        }
+      ],
+      "cli": [
+        "rag voice-simulate --audio sample.wav --tenant default"
+      ],
+      "background_jobs": [
+        "voice-call-runner"
+      ]
+    },
+    "files": {
+      "existing_to_touch": [
+        "backend/app/main.py",
+        "backend/db/models.py"
+      ],
+      "new_files": [
+        "backend/voice/__init__.py",
+        "backend/voice/call_handler.py",
+        "backend/voice/stt_adapter.py",
+        "backend/voice/tts_adapter.py",
+        "backend/app/routers/voice.py",
+        "tests/voice/test_call_handler.py"
+      ]
+    },
+    "data_model_changes": [
+      "Create call_sessions, call_turns, call_recordings tables"
+    ],
+    "third_party_libs": [
+      "twilio",
+      "deepgram-sdk",
+      "aiofiles"
+    ],
+    "env_vars": [
+      "TWILIO_ACCOUNT_SID",
+      "TWILIO_AUTH_TOKEN",
+      "VOICE_STT_API_KEY",
+      "VOICE_TTS_API_KEY",
+      "VOICE_CONFIDENCE_THRESHOLD"
+    ],
+    "acceptance_tests": [
+      "Given simulated Twilio webhook, handler returns TwiML with stream instructions and creates call_session row",
+      "Given STT transcript chunk, pipeline logs generated answer and schedules TTS response"
+    ],
+    "telemetry": [
+      "Metric: voice_call_duration_seconds",
+      "Log: voice_call_session with confidence and outcome"
+    ],
+    "risks": [
+      "Vendor APIs may differ from assumption",
+      "Latency budget tight for streaming"
+    ],
+    "fallback": "If streaming blocked, fallback to record-then-respond flow while logging assumption.",
+    "notes_for_prompt_engineer": "Abstract adapters; keep call handler async; secure secrets."
+  },
+  {
+    "id": "P7-S2",
+    "name": "Add call review & analytics",
+    "phase": "P7",
+    "goal": "Persist transcripts/audio and expose admin APIs for call analytics and compliance review.",
+    "depends_on": [
+      "P7-S1",
+      "P6-S1"
+    ],
+    "scope": {
+      "in_scope": [
+        "Store transcripts, audio URL, escalation flags in call sessions",
+        "Object storage adapter for audio uploads",
+        "Admin endpoints listing calls and fetching detail",
+        "Daily summary job writing metrics table",
+        "Tests covering API responses and storage interactions"
+      ],
+      "out_of_scope": [
+        "Frontend dashboards",
+        "Advanced analytics visualizations"
+      ]
+    },
+    "interfaces": {
+      "apis": [
+        {
+          "method": "GET",
+          "path": "/admin/calls"
+        },
+        {
+          "method": "GET",
+          "path": "/admin/calls/{id}"
+        }
+      ],
+      "cli": [
+        "rag export-calls --from 2024-01-01"
+      ],
+      "background_jobs": [
+        "voice-call-summary (nightly)"
+      ]
+    },
+    "files": {
+      "existing_to_touch": [
+        "backend/app/main.py",
+        "backend/db/models.py"
+      ],
+      "new_files": [
+        "backend/app/routers/calls.py",
+        "backend/app/schemas/calls.py",
+        "backend/voice/storage.py",
+        "backend/db/migrations/versions/0004_call_analytics.py",
+        "tests/api/test_calls_admin.py"
+      ]
+    },
+    "data_model_changes": [
+      "Extend call_sessions with transcript, audio_url, escalation_flag",
+      "Create call_metrics_daily table"
+    ],
+    "third_party_libs": [
+      "boto3"
+    ],
+    "env_vars": [
+      "CALL_STORAGE_BUCKET",
+      "CALL_SUMMARY_CRON"
+    ],
+    "acceptance_tests": [
+      "Given stored call session, GET /admin/calls lists session with confidence and escalation flag",
+      "Given audio upload stub, storage adapter saves file and returns signed URL stored in DB"
+    ],
+    "telemetry": [
+      "Metric: voice_calls_per_day",
+      "Log: call_export_job with record counts"
+    ],
+    "risks": [
+      "Storage compliance requirements uncertain"
+    ],
+    "fallback": "If bucket unavailable, store audio path locally with clear TODO to migrate.",
+    "notes_for_prompt_engineer": "Reuse admin auth; paginate results; ensure PII handling documented."
+  }
+]
