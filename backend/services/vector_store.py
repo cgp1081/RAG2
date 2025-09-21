@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Iterable, Optional, Sequence, TypedDict
 
 from qdrant_client import AsyncQdrantClient
+from qdrant_client import models as qdrant_models
 from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.http.models import CollectionInfo, Distance, VectorParams
 from structlog.types import FilteringBoundLogger
@@ -107,19 +108,25 @@ class VectorStoreClient:
         else:
             self._logger.info("collection.created", collection=name, vector_dim=self.vector_dim)
 
-    async def upsert_embeddings(self, tenant_id: str, vectors: Iterable[VectorPayload]) -> None:
-        """Upsert embeddings into the tenant collection."""
+    async def upsert_batch(
+        self,
+        tenant_id: str,
+        vectors: Iterable[VectorPayload],
+        *,
+        wait: bool = True,
+    ) -> list[str]:
+        """Upsert a batch of vectors and return their IDs."""
 
         points = [
             {
                 "id": payload["id"],
                 "vector": list(payload["embedding"]),
-                "payload": payload["metadata"],
+                "payload": payload.get("metadata", {}),
             }
             for payload in vectors
         ]
         if not points:
-            return
+            return []
 
         collection = self._collection_name(tenant_id)
         try:
@@ -128,16 +135,22 @@ class VectorStoreClient:
                     await self._client.upsert(
                         collection_name=collection,
                         points=points,
-                        wait=True,
+                        wait=wait,
                         timeout=self.timeout,
                     )
         except Exception as exc:  # pragma: no cover - retry exhaustion
             self._logger.error("vector.upsert.failed", collection=collection, error=str(exc))
             raise VectorUpsertError(f"Failed to upsert embeddings for {collection}: {exc}") from exc
-        else:
-            self._logger.info(
-                "vector.upsert", collection=collection, count=len(points)
-            )
+
+        self._logger.info(
+            "vector.upsert", collection=collection, count=len(points)
+        )
+        return [str(point["id"]) for point in points]
+
+    async def upsert_embeddings(self, tenant_id: str, vectors: Iterable[VectorPayload]) -> None:
+        """Backward compatible wrapper for `upsert_batch`."""
+
+        await self.upsert_batch(tenant_id, vectors)
 
     async def search(
         self,
@@ -175,6 +188,49 @@ class VectorStoreClient:
                 )
             )
         return results
+
+    async def has_similar_embedding(
+        self,
+        tenant_id: str,
+        embedding: Sequence[float],
+        *,
+        threshold: float = 0.995,
+        filters: Optional[dict[str, Any]] = None,
+        limit: int = 5,
+    ) -> bool:
+        """Return True if an embedding above threshold already exists."""
+
+        results = await self.search(
+            tenant_id,
+            embedding,
+            limit=limit,
+            filters=filters,
+        )
+        return any(result.score >= threshold for result in results)
+
+    async def delete_points(self, tenant_id: str, ids: Sequence[str]) -> None:
+        """Delete specific vector IDs from the tenant collection."""
+
+        if not ids:
+            return
+
+        collection = self._collection_name(tenant_id)
+        try:
+            async for attempt in self._retry_factory():
+                with attempt:
+                    await self._client.delete(
+                        collection_name=collection,
+                        points_selector=qdrant_models.PointIdsList(points=list(ids)),
+                        timeout=self.timeout,
+                    )
+        except Exception as exc:  # pragma: no cover - retry exhaustion
+            self._logger.error("vector.delete.failed", collection=collection, error=str(exc))
+            raise VectorStoreError(f"Failed to delete points for {collection}: {exc}") from exc
+
+    async def close(self) -> None:
+        """Close underlying client resources."""
+
+        await self._client.close()
 
     async def healthcheck(self) -> None:
         """Verify vector store availability."""

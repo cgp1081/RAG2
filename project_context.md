@@ -43,7 +43,13 @@
 - `project_context.md`: (this file) running summary for future collaborators.
 - `backend/` (P0-S1): FastAPI scaffold with structured logging, `/healthz`, configuration helpers, Dockerfile, docker-compose wiring, CI workflow, pytest + httpx tests.
 - `backend/db/` (P1-S1): SQLAlchemy declarative base, ORM models (tenant/source/document/chunk/ingestion run/event), session factory, Alembic environment and initial migration (`0001_initial`).
+- `backend/db/migrations/versions/0002_ingestion_pipeline.py`: schema updates for ingestion metadata (document hashes, chunk stats, ingestion run counters).
+- `backend/services/`: Vector store and embedding service abstractions with retry helpers.
+- `backend/cli/`: Typer CLI entry (`rag ingest-files`) and ingestion orchestration hook; executable via `rag ingest-files --path <dir> --tenant <id>` once dependencies (Postgres, Qdrant, Ollama) are available.
+- `backend/ingestion/`: Chunking, deduplication, and pipeline modules powering local file ingestion.
 - `backend/tests/test_migrations.py`, `backend/tests/test_models_relationships.py`: Regression coverage for Alembic upgrade and ORM relationships.
+- `backend/tests/services/*`: Service-level coverage for vector store and embedding client behavior.
+- `tests/ingestion/*` + `tests/fixtures/docs/`: Pipeline tests with fakes and sample documents.
 - `alembic.ini`: Root Alembic configuration with `path_separator = os` to avoid prepend warning.
 
 ## Next Immediate Steps
@@ -75,6 +81,14 @@
 - Delivered `backend/tests/stub_embed.py` helper to exercise embeddings manually; gracefully reports errors when Ollama is absent.
 - Tests executed: `python3 -m ruff check backend`, `python3 -m pytest backend/tests/services/test_vector_store.py backend/tests/services/test_embedding_service.py`, `python3 -m pytest backend/tests`.
 
+### 2025-09-21 — P1-S3: Local Ingestion CLI & Pipeline
+- Added Typer CLI entry point (`rag ingest-files`) with async orchestration (`backend/cli/__init__.py`, `backend/cli/ingest.py`, `backend/cli/run_ingest.py`).
+- Implemented ingestion pipeline modules for chunking, deduplication, and vector upserts (`backend/ingestion/*`), including configurable chunk sizes and tenant defaults.
+- Extended ORM and migrations with document/ chunk hashes, mime metadata, and ingestion run counters (`backend/db/models.py`, `backend/db/migrations/versions/0002_ingestion_pipeline.py`).
+- Authored ingestion tests with vector/embedding fakes and fixture docs (`tests/ingestion/*`), skipping gracefully when Postgres is unavailable.
+- Updated dependencies & env plumbing for Typer, python-magic, tiktoken, and CLI execution (`pyproject.toml`, `.env.example`, `docker-compose.yml`, `.github/workflows/ci.yml`).
+- Commands exercised: `python3 -m ruff check backend tests`, `python3 -m pytest backend/tests tests/ingestion/test_pipeline.py`.
+
 ## Deviations & Notes
 - Test fixtures reuse the configured Postgres instance instead of creating per-test databases (original brief suggested ephemeral DBs). Document this if multi-tenant isolation becomes critical.
 - `documents.metadata` column stored under attribute `metadata_json` to avoid SQLAlchemy reserved-name conflict; accessor convenience not yet added.
@@ -82,3 +96,7 @@
 - PostgreSQL password resets may be required for local testing (`docker compose exec postgres psql -U postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';"`).
 - Remember to enable `pgcrypto` (or equivalent) if deploying to a new database so `gen_random_uuid()` works (see migration note).
 - Embedding fallback models are read from `EMBEDDING_FALLBACK_MODELS` (comma-separated) but default to none; future work can surface this via admin UI or per-tenant config.
+- Ingestion tests skip automatically when the Postgres test database is unavailable; CI installs `libmagic` for MIME detection.
+- When running ingestion tests locally, start the compose stack (`docker compose up -d postgres`) so Postgres is reachable; otherwise tests will skip.
+- Ingestion CLI currently supports local filesystem ingestion only; remote connectors and scheduling remain TODO per project plan.
+- Embedding pipeline expects an Ollama-compatible endpoint; helper `backend/tests/stub_embed.py` provides local smoke verification when service is reachable.

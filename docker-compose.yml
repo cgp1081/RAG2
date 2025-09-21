@@ -21,6 +21,10 @@ services:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       VECTOR_DIM: ${VECTOR_DIM:-1536}
       VECTOR_TIMEOUT_SECONDS: ${VECTOR_TIMEOUT_SECONDS:-10.0}
+      LOCAL_INGEST_ROOT: ${LOCAL_INGEST_ROOT:-/app/data}
+      CHUNK_SIZE: ${CHUNK_SIZE:-400}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-40}
+      INGEST_DEFAULT_TENANT: ${INGEST_DEFAULT_TENANT:-default}
     volumes:
       - ./backend:/app/backend
     ports:

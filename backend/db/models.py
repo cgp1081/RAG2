@@ -106,6 +106,7 @@ class Document(Base):
         ),
         sa.Index("ix_documents_tenant_id", "tenant_id"),
         sa.Index("ix_documents_source_id", "source_id"),
+        sa.Index("ix_documents_tenant_sha", "tenant_id", "sha256", unique=True),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -132,6 +133,9 @@ class Document(Base):
         server_default=sa.text("'pending'"),
     )
     metadata_json: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
+    sha256: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    content_size: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    mime_type: Mapped[str | None] = mapped_column(sa.String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         sa.TIMESTAMP(timezone=True),
         nullable=False,
@@ -150,6 +154,7 @@ class Document(Base):
         back_populates="document",
         cascade="all, delete-orphan",
         lazy="selectin",
+        order_by="DocumentChunk.chunk_order",
     )
 
 
@@ -158,6 +163,7 @@ class DocumentChunk(Base):
     __tablename__ = "document_chunks"
     __table_args__ = (
         sa.Index("ix_document_chunks_document_id", "document_id"),
+        sa.UniqueConstraint("document_id", "chunk_order", name="uq_document_chunk_order"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -170,13 +176,15 @@ class DocumentChunk(Base):
         sa.ForeignKey("documents.id", ondelete="CASCADE"),
         nullable=False,
     )
-    chunk_index: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    chunk_order: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     content: Mapped[str] = mapped_column(sa.Text, nullable=False)
     embedding: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True,
         comment="TODO: replace JSON placeholder with vector column when available",
     )
+    sha256: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    token_count: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
         sa.TIMESTAMP(timezone=True),
         nullable=False,
@@ -223,6 +231,9 @@ class IngestionRun(Base):
         nullable=False,
         server_default=sa.func.now(),
     )
+    path: Mapped[str | None] = mapped_column(sa.String(1024), nullable=True)
+    total_documents: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    processed_documents: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
 
     tenant: Mapped[Tenant] = relationship(back_populates="ingestion_runs", lazy="selectin")
     source: Mapped[Source | None] = relationship(back_populates="ingestion_runs", lazy="selectin")
@@ -260,6 +271,19 @@ class IngestionEvent(Base):
     run: Mapped[IngestionRun] = relationship(back_populates="events", lazy="selectin")
 
 
+class IngestionEventType:
+    """Canonical ingestion event types."""
+
+    RUN_STARTED = "run_started"
+    RUN_COMPLETED = "run_completed"
+    RUN_FAILED = "run_failed"
+    DOCUMENT_STARTED = "document_started"
+    DOCUMENT_SKIPPED = "document_skipped"
+    DOCUMENT_COMPLETED = "document_completed"
+    CHUNK_SKIPPED_DUPLICATE = "chunk_skipped_duplicate"
+    ERROR = "error"
+
+
 __all__ = [
     "Tenant",
     "Source",
@@ -267,4 +291,5 @@ __all__ = [
     "DocumentChunk",
     "IngestionRun",
     "IngestionEvent",
+    "IngestionEventType",
 ]

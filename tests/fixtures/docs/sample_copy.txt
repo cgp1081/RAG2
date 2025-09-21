@@ -1,0 +1,2 @@
+This is a second document with similar but distinct content.
+It ensures the ingestion pipeline handles multiple files.

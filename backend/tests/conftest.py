@@ -90,6 +90,12 @@ def settings_override(database_url: str) -> Settings:
         app_version="test-version",
         database_url=database_url,
         db_pool_size=5,
+        embedding_model="test-embed",
+        embedding_fallback_models=[],
+        local_ingest_root=Path(PROJECT_ROOT / "tests" / "fixtures" / "docs"),
+        chunk_size=200,
+        chunk_overlap=20,
+        ingest_default_tenant="default",
     )
 
 

@@ -15,6 +15,10 @@ dependencies = [
     "psycopg[binary]",
     "qdrant-client",
     "tenacity",
+    "typer[all]",
+    "python-magic",
+    "tiktoken",
+    "pypdf",
 ]
 
 [project.optional-dependencies]
@@ -25,7 +29,11 @@ dev = [
     "ruff",
     "mypy",
     "pytest-httpx",
+    "pytest-mock",
 ]
+
+[project.scripts]
+rag = "backend.cli:app"
 
 [build-system]
 requires = ["setuptools>=65"]

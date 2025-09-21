@@ -7,6 +7,7 @@ SQLAlchemy session factory. Future components should rely on
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Generator
@@ -32,6 +33,10 @@ class Settings(BaseSettings):
     vector_dim: int = 1536
     vector_timeout_seconds: float = 10.0
     embedding_fallback_models: list[str] = []
+    local_ingest_root: Path | str = Path("./data")
+    chunk_size: int = 400
+    chunk_overlap: int = 40
+    ingest_default_tenant: str = "default"
 
     model_config = SettingsConfigDict(env_prefix="", extra="ignore", case_sensitive=False)
 
@@ -59,6 +64,23 @@ class Settings(BaseSettings):
         if isinstance(value, (list, tuple, set)):
             return [str(item).strip() for item in value if str(item).strip()]
         raise ValueError("Invalid fallback model list")
+
+    @dataclass(slots=True)
+    class IngestionConfig:
+        local_root: Path
+        chunk_size: int
+        chunk_overlap: int
+        default_tenant: str
+        vector_dim: int
+
+    def ingestion_config(self) -> "Settings.IngestionConfig":
+        return self.IngestionConfig(
+            local_root=Path(self.local_ingest_root).resolve(),
+            chunk_size=self.chunk_size,
+            chunk_overlap=self.chunk_overlap,
+            default_tenant=self.ingest_default_tenant,
+            vector_dim=self.vector_dim,
+        )
 
 
 def _build_settings() -> Settings:
