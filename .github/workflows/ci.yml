@@ -15,6 +15,12 @@ jobs:
       APP_VERSION: 0.1.0
       POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
       QDRANT_URL: http://localhost:6333
+      QDRANT_API_KEY: ""
+      EMBEDDING_MODEL: nomic-embed-text
+      EMBEDDING_FALLBACK_MODELS: ""
+      OLLAMA_BASE_URL: http://localhost:11434
+      VECTOR_DIM: 1536
+      VECTOR_TIMEOUT_SECONDS: 10.0
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

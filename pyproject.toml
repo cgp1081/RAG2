@@ -13,6 +13,8 @@ dependencies = [
     "sqlalchemy>=2.0",
     "alembic",
     "psycopg[binary]",
+    "qdrant-client",
+    "tenacity",
 ]
 
 [project.optional-dependencies]
@@ -22,6 +24,7 @@ dev = [
     "httpx",
     "ruff",
     "mypy",
+    "pytest-httpx",
 ]
 
 [build-system]

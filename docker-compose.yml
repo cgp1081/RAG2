@@ -15,6 +15,12 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:postgres@postgres:5432/postgres}
       DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
       QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      EMBEDDING_FALLBACK_MODELS: ${EMBEDDING_FALLBACK_MODELS:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      VECTOR_DIM: ${VECTOR_DIM:-1536}
+      VECTOR_TIMEOUT_SECONDS: ${VECTOR_TIMEOUT_SECONDS:-10.0}
     volumes:
       - ./backend:/app/backend
     ports:

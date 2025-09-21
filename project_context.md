@@ -68,9 +68,17 @@
 - Applied migration to local Postgres via `DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/postgres python3 -m alembic upgrade head`.
 - Lint/tests executed: `python3 -m ruff check backend`, `python3 -m pytest backend/tests`.
 
+### 2025-09-21 — P1-S2 Prep: Vector Store & Embedding Services
+- Extended settings/env to include Qdrant and Ollama controls plus fallback model list (`backend/app/config.py`, `.env.example`, `docker-compose.yml`, `.github/workflows/ci.yml`).
+- Added service abstractions for Qdrant and Ollama embeddings with retry/backoff and structured logging (`backend/services/*`).
+- Supplied pytest coverage for service behavior, including optional Qdrant integration smoke (`backend/tests/services/*`).
+- Delivered `backend/tests/stub_embed.py` helper to exercise embeddings manually; gracefully reports errors when Ollama is absent.
+- Tests executed: `python3 -m ruff check backend`, `python3 -m pytest backend/tests/services/test_vector_store.py backend/tests/services/test_embedding_service.py`, `python3 -m pytest backend/tests`.
+
 ## Deviations & Notes
 - Test fixtures reuse the configured Postgres instance instead of creating per-test databases (original brief suggested ephemeral DBs). Document this if multi-tenant isolation becomes critical.
 - `documents.metadata` column stored under attribute `metadata_json` to avoid SQLAlchemy reserved-name conflict; accessor convenience not yet added.
 - Alembic CLI not on PATH; use `python3 -m alembic …` or install scripts locally.
 - PostgreSQL password resets may be required for local testing (`docker compose exec postgres psql -U postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';"`).
 - Remember to enable `pgcrypto` (or equivalent) if deploying to a new database so `gen_random_uuid()` works (see migration note).
+- Embedding fallback models are read from `EMBEDDING_FALLBACK_MODELS` (comma-separated) but default to none; future work can surface this via admin UI or per-tenant config.

@@ -9,10 +9,10 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Generator
+from typing import Any, Generator
 
 from dotenv import dotenv_values
-from pydantic import AnyHttpUrl, PostgresDsn
+from pydantic import AnyHttpUrl, PostgresDsn, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,9 +23,15 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     postgres_url: AnyHttpUrl | str = "postgresql+psycopg://postgres:postgres@postgres:5432/postgres"
     qdrant_url: AnyHttpUrl | str = "http://qdrant:6333"
+    qdrant_api_key: str | None = None
     app_version: str = "0.1.0"
     database_url: PostgresDsn | str = "postgresql+psycopg://postgres:postgres@postgres:5432/postgres"
     db_pool_size: int = 10
+    embedding_model: str = "nomic-embed-text"
+    ollama_base_url: AnyHttpUrl | str = "http://ollama:11434"
+    vector_dim: int = 1536
+    vector_timeout_seconds: float = 10.0
+    embedding_fallback_models: list[str] = []
 
     model_config = SettingsConfigDict(env_prefix="", extra="ignore", case_sensitive=False)
 
@@ -42,6 +48,17 @@ class Settings(BaseSettings):
             merged["DB_POOL_SIZE"] = merged["DATABASE_POOL_SIZE"]
         # BaseSettings will re-read the OS environment, so pass merged as data.
         return cls(**merged)
+
+    @field_validator("embedding_fallback_models", mode="before")
+    @classmethod
+    def _parse_fallback_models(cls, value: Any) -> list[str]:
+        if value is None or value == "":
+            return []
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        if isinstance(value, (list, tuple, set)):
+            return [str(item).strip() for item in value if str(item).strip()]
+        raise ValueError("Invalid fallback model list")
 
 
 def _build_settings() -> Settings:
