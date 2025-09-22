@@ -96,6 +96,7 @@ def settings_override(database_url: str) -> Settings:
         chunk_size=200,
         chunk_overlap=20,
         ingest_default_tenant="default",
+        admin_api_key="test-admin-key",
     )
 
 

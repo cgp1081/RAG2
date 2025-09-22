@@ -25,6 +25,7 @@ services:
       CHUNK_SIZE: ${CHUNK_SIZE:-400}
       CHUNK_OVERLAP: ${CHUNK_OVERLAP:-40}
       INGEST_DEFAULT_TENANT: ${INGEST_DEFAULT_TENANT:-default}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-changeme}
     volumes:
       - ./backend:/app/backend
     ports:

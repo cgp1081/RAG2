@@ -11,8 +11,9 @@ from fastapi import FastAPI
 from backend.db.session import init_engine
 
 from .config import get_settings
-from .logging import RequestLoggingMiddleware, configure_logging
+from .logging import RequestLoggingMiddleware, configure_logging, get_logger
 from .routers import health_router
+from .routers.ingestion import router as admin_router
 
 
 def create_app() -> FastAPI:
@@ -21,10 +22,15 @@ def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings.log_level)
     init_engine(settings)
+    logger = get_logger(__name__)
 
     app = FastAPI(title="RAG Platform API", version=settings.app_version)
     app.add_middleware(RequestLoggingMiddleware)
     app.include_router(health_router, prefix="")
+    app.include_router(admin_router)
+
+    if settings.admin_api_key is None:
+        logger.warning("admin.api.disabled", reason="missing API key")
 
     return app
 

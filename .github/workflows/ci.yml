@@ -25,6 +25,7 @@ jobs:
       CHUNK_SIZE: 200
       CHUNK_OVERLAP: 20
       INGEST_DEFAULT_TENANT: default
+      ADMIN_API_KEY: changeme
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

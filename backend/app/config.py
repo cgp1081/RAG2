@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     database_url: PostgresDsn | str = "postgresql+psycopg://postgres:postgres@postgres:5432/postgres"
     db_pool_size: int = 10
+    admin_api_key: str | None = None
     embedding_model: str = "nomic-embed-text"
     ollama_base_url: AnyHttpUrl | str = "http://ollama:11434"
     vector_dim: int = 1536
@@ -100,4 +101,10 @@ def settings_dependency() -> Generator[Settings, None, None]:
     yield get_settings()
 
 
-__all__ = ["Settings", "get_settings", "settings_dependency"]
+def get_admin_api_key() -> str | None:
+    """Return the configured admin API key, if any."""
+
+    return get_settings().admin_api_key
+
+
+__all__ = ["Settings", "get_settings", "settings_dependency", "get_admin_api_key"]

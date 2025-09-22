@@ -89,6 +89,13 @@
 - Updated dependencies & env plumbing for Typer, python-magic, tiktoken, and CLI execution (`pyproject.toml`, `.env.example`, `docker-compose.yml`, `.github/workflows/ci.yml`).
 - Commands exercised: `python3 -m ruff check backend tests`, `python3 -m pytest backend/tests tests/ingestion/test_pipeline.py`.
 
+### 2025-09-21 — P1-S4: Admin Ingestion Status API
+- Added `/admin/ingestion-runs` and `/admin/documents` endpoints with static API-key auth for operator dashboards (`backend/app/routers/ingestion.py`).
+- Introduced Pydantic response schemas and integrated router into the FastAPI app with telemetry (`backend/app/schemas/ingestion.py`, `backend/app/main.py`).
+- Exposed `ADMIN_API_KEY` configuration, wiring through settings, compose, CI, and `.env.example` (`backend/app/config.py`, `.github/workflows/ci.yml`, `docker-compose.yml`).
+- Authored API tests covering pagination, filtering, and auth failures (`tests/api/test_ingestion_status.py`).
+- Test command: `python3 -m pytest backend/tests tests/api` (skips expected when external services unavailable).
+
 ## Deviations & Notes
 - Test fixtures reuse the configured Postgres instance instead of creating per-test databases (original brief suggested ephemeral DBs). Document this if multi-tenant isolation becomes critical.
 - `documents.metadata` column stored under attribute `metadata_json` to avoid SQLAlchemy reserved-name conflict; accessor convenience not yet added.

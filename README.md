@@ -129,6 +129,9 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
   - Usage analytics: query volume, response accuracy, deflection stats.
   - Call analytics dashboard with transcript search, confidence scoring, and manual escalation logs.
   - Table catalog management with schema previews, column visibility, and export controls.
+- **Admin API:**
+  - `/admin/ingestion-runs` and `/admin/documents` expose paginated ingestion telemetry for operator dashboards.
+  - Clients must send `X-Admin-API-Key` matching the `ADMIN_API_KEY` environment variable; missing or mismatched keys receive `401`, and leaving the variable unset disables the routes entirely.
 
 - **CLI Utilities:**
   - `rag ingest <path>` for manual uploads.
@@ -162,6 +165,7 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
 - **Scaling:** Horizontal scaling on workers and API; asynchronous task queue (Celery/RQ/BullMQ).
 - **Observability Stack:** Prometheus + Grafana + Loki; alerting on latency/error thresholds.
 - **Testing:** Load tests targeting 100+ concurrent sessions, retrieval precision benchmarks, connector integration tests.
+- **Configuration:** Set `ADMIN_API_KEY` wherever the backend runs to enable the operator endpoints; use distinct values per environment and rotate via your secrets manager.
 
 ---
 
