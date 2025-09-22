@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 
 from ..config import Settings, settings_dependency
 from .ingestion import router as ingestion_router, require_admin_api_key
+from .retrieval import router as retrieval_router
 
 health_router = APIRouter()
 
@@ -14,4 +15,4 @@ async def health(settings: Settings = Depends(settings_dependency)) -> dict[str,
     return {"status": "ok", "app_version": settings.app_version}
 
 
-__all__ = ["health_router", "ingestion_router", "require_admin_api_key"]
+__all__ = ["health_router", "ingestion_router", "retrieval_router", "require_admin_api_key"]

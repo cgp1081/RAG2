@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     chunk_size: int = 400
     chunk_overlap: int = 40
     ingest_default_tenant: str = "default"
+    retrieval_top_k_default: int = 8
+    retrieval_score_floor: float = 0.35
+    retrieval_score_ceiling: float = 0.95
+    retrieval_diagnostics: bool = False
 
     model_config = SettingsConfigDict(env_prefix="", extra="ignore", case_sensitive=False)
 

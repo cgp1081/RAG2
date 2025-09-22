@@ -19,6 +19,7 @@ dependencies = [
     "python-magic",
     "tiktoken",
     "pypdf",
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]

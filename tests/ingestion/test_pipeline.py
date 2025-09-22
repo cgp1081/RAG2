@@ -58,7 +58,12 @@ async def test_ingest_new_documents_creates_chunks_and_embeddings(
     assert result.processed_documents == 2
     assert len(docs) == 2
     assert len(chunks) >= 2
-    assert vector_store_fake.storage["default"]
+    stored_vectors = list(vector_store_fake.storage["default"].values())
+    assert stored_vectors
+    metadata = stored_vectors[0]["payload"]
+    assert metadata.get("chunk_id")
+    assert metadata.get("content")
+    assert len(metadata["content"]) <= 500
 
 
 @pytest.mark.asyncio

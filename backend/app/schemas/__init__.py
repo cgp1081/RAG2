@@ -5,10 +5,20 @@ from .ingestion import (
     PaginatedDocuments,
     PaginatedIngestionRuns,
 )
+from .retrieval import (
+    RetrievalChunkResponse,
+    RetrievalFilterSchema,
+    RetrievalQueryRequest,
+    RetrievalQueryResponse,
+)
 
 __all__ = [
     "DocumentStatus",
     "IngestionRunSummary",
     "PaginatedDocuments",
     "PaginatedIngestionRuns",
+    "RetrievalChunkResponse",
+    "RetrievalFilterSchema",
+    "RetrievalQueryRequest",
+    "RetrievalQueryResponse",
 ]

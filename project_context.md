@@ -96,6 +96,14 @@
 - Authored API tests covering pagination, filtering, and auth failures (`tests/api/test_ingestion_status.py`).
 - Test command: `python3 -m pytest backend/tests tests/api` (skips expected when external services unavailable).
 
+### 2025-09-22 — P2-S1: Retrieval Service & API
+- Implemented retrieval models and service with score normalisation, filter support, and diagnostics (`backend/retrieval/models.py`, `backend/retrieval/service.py`).
+- Extended vector store adapter with payload-aware results, metadata filter construction, and logging (`backend/services/vector_store.py`).
+- Stored chunk IDs and content previews in vector metadata during ingestion to unlock richer retrieval responses (`backend/ingestion/pipeline.py`).
+- Added `rag debug-retrieve` CLI plus FastAPI `/v1/retrieval/query` endpoint with request-scoped dependencies (`backend/cli/debug.py`, `backend/app/routers/retrieval.py`, `backend/retrieval/dependencies.py`).
+- Updated env/config docs for retrieval knobs and added unit/API coverage (`tests/retrieval/test_service.py`, `tests/api/test_retrieval_api.py`).
+- Test command: `python3 -m pytest backend/tests tests/api tests/ingestion tests/retrieval`.
+
 ## Deviations & Notes
 - Test fixtures reuse the configured Postgres instance instead of creating per-test databases (original brief suggested ephemeral DBs). Document this if multi-tenant isolation becomes critical.
 - `documents.metadata` column stored under attribute `metadata_json` to avoid SQLAlchemy reserved-name conflict; accessor convenience not yet added.

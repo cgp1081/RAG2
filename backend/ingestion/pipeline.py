@@ -33,6 +33,13 @@ _logger = get_logger(__name__)
 _magic = magic.Magic(mime=True) if magic else None
 
 
+def _truncate_content(text: str, limit: int = 500) -> str:
+    snippet = text.strip()
+    if len(snippet) <= limit:
+        return snippet
+    return snippet[: limit - 3] + "..."
+
+
 @dataclass(slots=True)
 class IngestionResult:
     processed_documents: int = 0
@@ -259,6 +266,12 @@ class IngestionPipeline:
         document.status = "ready"
         self.session.commit()
 
+        for model, payload in zip(chunk_models, vector_payloads, strict=True):
+            metadata = payload["metadata"]
+            metadata["chunk_id"] = str(model.id)
+            if not metadata.get("content"):
+                metadata["content"] = _truncate_content(model.content)
+
         if vector_payloads:
             await self.vector_store.upsert_batch(tenant_id, vector_payloads)
 
@@ -310,6 +323,7 @@ class IngestionPipeline:
                         "document_id": str(document.id),
                         "chunk_order": chunk.index,
                         "sha256": chunk.sha256,
+                        "content": _truncate_content(chunk.text),
                     },
                 )
             )

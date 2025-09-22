@@ -138,10 +138,12 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
   - `rag reembed --model <name>` to trigger re-embedding.
   - `rag sync <connector>` for ad-hoc refresh.
   - `rag table register <source>` to capture schemas and manage refresh schedules.
+  - `rag debug-retrieve --query "..." --tenant <id>` to inspect ranked chunks and scoring locally (diagnostic only).
 
 - **API Endpoints:**
   - REST endpoints for chat, ingest, and metadata management.
   - Table registration, schema refresh, and guarded SQL execution endpoints.
+  - Retrieval query endpoint (`POST /v1/retrieval/query`) returning ranked chunks with applied filters and diagnostics.
   - Future addition: user provisioning and role management.
 
 ---
@@ -166,6 +168,7 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
 - **Observability Stack:** Prometheus + Grafana + Loki; alerting on latency/error thresholds.
 - **Testing:** Load tests targeting 100+ concurrent sessions, retrieval precision benchmarks, connector integration tests.
 - **Configuration:** Set `ADMIN_API_KEY` wherever the backend runs to enable the operator endpoints; use distinct values per environment and rotate via your secrets manager.
+  - Retrieval-specific environment knobs (`RETRIEVAL_TOP_K_DEFAULT`, `RETRIEVAL_SCORE_FLOOR`, `RETRIEVAL_SCORE_CEILING`, `RETRIEVAL_DIAGNOSTICS`) tune ranking behaviour and logging verbosity.
 
 ---
 

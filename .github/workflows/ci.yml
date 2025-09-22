@@ -26,6 +26,10 @@ jobs:
       CHUNK_OVERLAP: 20
       INGEST_DEFAULT_TENANT: default
       ADMIN_API_KEY: changeme
+      RETRIEVAL_TOP_K_DEFAULT: 8
+      RETRIEVAL_SCORE_FLOOR: 0.35
+      RETRIEVAL_SCORE_CEILING: 0.95
+      RETRIEVAL_DIAGNOSTICS: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

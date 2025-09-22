@@ -62,7 +62,7 @@ class FakeAsyncQdrantClient:
         collection_name: str,
         query_vector: Sequence[float],
         limit: int,
-        filter: dict[str, Any] | None = None,
+        filter: Any | None = None,
         timeout: float | None = None,
     ) -> list[Any]:
         if collection_name not in self.points:
@@ -93,7 +93,7 @@ async def test_vector_store_creates_and_upserts() -> None:
     await store.upsert_embeddings("alpha", [payload])
 
     results = await store.search("alpha", [0.1, 0.2, 0.3])
-    assert results == [VectorSearchResult(id="doc-1", score=1.0, metadata={"source": "test"})]
+    assert results == [VectorSearchResult(id="doc-1", score=1.0, payload={"source": "test"})]
 
 
 @pytest.mark.asyncio

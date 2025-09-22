@@ -37,7 +37,11 @@ class VectorSearchResult:
 
     id: str
     score: float
-    metadata: dict[str, Any]
+    payload: dict[str, Any]
+
+    @property
+    def metadata(self) -> dict[str, Any]:  # pragma: no cover - backward compatibility alias
+        return self.payload
 
 
 class VectorStoreClient:
@@ -158,7 +162,7 @@ class VectorStoreClient:
         embedding: Sequence[float],
         *,
         limit: int = 10,
-        filters: Optional[dict[str, Any]] = None,
+        filters: Any | None = None,
     ) -> list[VectorSearchResult]:
         """Search for nearest vectors within a tenant collection."""
 
@@ -184,9 +188,36 @@ class VectorStoreClient:
                 VectorSearchResult(
                     id=str(getattr(point, "id", "")),
                     score=float(getattr(point, "score", 0.0)),
-                    metadata=dict(payload),
+                    payload=dict(payload),
                 )
             )
+        return results
+
+    async def search_with_filters(
+        self,
+        *,
+        tenant_id: str,
+        embedding: Sequence[float],
+        top_k: int,
+        filters: dict[str, Any] | None = None,
+    ) -> list[VectorSearchResult]:
+        """Search with optional metadata filters converted for Qdrant payloads."""
+
+        qdrant_filter = self._build_payload_filter(filters)
+        results = await self.search(
+            tenant_id,
+            embedding,
+            limit=max(top_k, 1),
+            filters=qdrant_filter,
+        )
+        top_score = float(results[0].score) if results else None
+        self._logger.info(
+            "vector.search",
+            tenant_id=tenant_id,
+            queried_top_k=top_k,
+            result_count=len(results),
+            top_score=top_score,
+        )
         return results
 
     async def has_similar_embedding(
@@ -249,6 +280,55 @@ class VectorStoreClient:
             first_config = next(iter(vectors.values()))
             return first_config.size
         return vectors.size
+
+    def _build_payload_filter(
+        self, filters: dict[str, Any] | None
+    ) -> qdrant_models.Filter | None:
+        if not filters:
+            return None
+
+        must_conditions: list[qdrant_models.FieldCondition] = []
+
+        if isinstance(filters, dict):
+            source_types = filters.get("source_type")
+            if source_types:
+                values = (
+                    list(source_types)
+                    if isinstance(source_types, (list, tuple, set))
+                    else [source_types]
+                )
+                must_conditions.append(
+                    qdrant_models.FieldCondition(
+                        key="source_type",
+                        match=qdrant_models.MatchAny(any=list(values)),
+                    )
+                )
+
+            tags = filters.get("tags")
+            if tags:
+                values = (
+                    list(tags) if isinstance(tags, (list, tuple, set)) else [tags]
+                )
+                must_conditions.append(
+                    qdrant_models.FieldCondition(
+                        key="tags",
+                        match=qdrant_models.MatchAny(any=list(values)),
+                    )
+                )
+
+            visibility_scope = filters.get("visibility_scope")
+            if visibility_scope:
+                must_conditions.append(
+                    qdrant_models.FieldCondition(
+                        key="visibility_scope",
+                        match=qdrant_models.MatchValue(value=visibility_scope),
+                    )
+                )
+
+        if not must_conditions:
+            return None
+
+        return qdrant_models.Filter(must=must_conditions)
 
 
 def build_vector_store(settings: Settings) -> VectorStoreClient:
