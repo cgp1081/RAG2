@@ -45,16 +45,20 @@
 - `backend/db/` (P1-S1): SQLAlchemy declarative base, ORM models (tenant/source/document/chunk/ingestion run/event), session factory, Alembic environment and initial migration (`0001_initial`).
 - `backend/db/migrations/versions/0002_ingestion_pipeline.py`: schema updates for ingestion metadata (document hashes, chunk stats, ingestion run counters).
 - `backend/services/`: Vector store and embedding service abstractions with retry helpers.
-- `backend/cli/`: Typer CLI entry (`rag ingest-files`) and ingestion orchestration hook; executable via `rag ingest-files --path <dir> --tenant <id>` once dependencies (Postgres, Qdrant, Ollama) are available.
+- `backend/cli/`: Typer CLI entry points (`rag ingest-files`, `rag debug-retrieve`, `rag dry-run`) for ingestion, retrieval inspection, and end-to-end RAG validation.
 - `backend/ingestion/`: Chunking, deduplication, and pipeline modules powering local file ingestion.
+- `backend/rag/`: Prompt builder, LLM client, and RAG pipeline wiring retrieved chunks into cited answers.
 - `backend/tests/test_migrations.py`, `backend/tests/test_models_relationships.py`: Regression coverage for Alembic upgrade and ORM relationships.
 - `backend/tests/services/*`: Service-level coverage for vector store and embedding client behavior.
 - `tests/ingestion/*` + `tests/fixtures/docs/`: Pipeline tests with fakes and sample documents.
+- `tests/rag/test_pipeline.py`: Async RAG pipeline coverage with retrieval/LLM fakes.
 - `alembic.ini`: Root Alembic configuration with `path_separator = os` to avoid prepend warning.
 
 ## Next Immediate Steps
 - Reference `project_sequence.txt` to select the next unblocked task (likely remaining Phase 1 decision work or Phase 2 foundations).
 - Keep this context updated with any new architectural decisions, schema changes, or deviations encountered during upcoming tasks.
+- Wire the new RAG pipeline into the chat API layer and plan persistence/telemetry for generated answers.
+- Resolve offline availability for `tiktoken` vocab files so full `python3 -m pytest` runs without network access.
 
 ## Progress Log
 
@@ -104,6 +108,13 @@
 - Updated env/config docs for retrieval knobs and added unit/API coverage (`tests/retrieval/test_service.py`, `tests/api/test_retrieval_api.py`).
 - Test command: `python3 -m pytest backend/tests tests/api tests/ingestion tests/retrieval`.
 
+### 2025-09-22 — P2-S2: RAG Answer Generation Pipeline
+- Added LLM configuration knobs (base URL, model, token cap, timeout) across settings, `.env.example`, compose, and pytest overrides for deterministic runs.
+- Introduced `backend/rag/` with Jinja2-based prompt builder, OpenAI-compatible async LLM client, and `RAGPipeline` orchestrating retrieval, prompting, and cited answers.
+- Implemented new `rag dry-run` CLI command to exercise the full pipeline with optional filters and print prompt/answer/citations.
+- Authored async unit tests covering citation assembly, empty-context fallback, and blank completion handling (`tests/rag/test_pipeline.py`).
+- Verification: `python3 -m pytest tests/rag/test_pipeline.py` (passes). Full `python3 -m pytest` currently fails when `tiktoken` attempts to download remote vocab data in sandboxed environments; need cached assets for offline CI.
+
 ## Deviations & Notes
 - Test fixtures reuse the configured Postgres instance instead of creating per-test databases (original brief suggested ephemeral DBs). Document this if multi-tenant isolation becomes critical.
 - `documents.metadata` column stored under attribute `metadata_json` to avoid SQLAlchemy reserved-name conflict; accessor convenience not yet added.
@@ -115,3 +126,4 @@
 - When running ingestion tests locally, start the compose stack (`docker compose up -d postgres`) so Postgres is reachable; otherwise tests will skip.
 - Ingestion CLI currently supports local filesystem ingestion only; remote connectors and scheduling remain TODO per project plan.
 - Embedding pipeline expects an Ollama-compatible endpoint; helper `backend/tests/stub_embed.py` provides local smoke verification when service is reachable.
+- Full test suite requires cached `tiktoken` encoding files; without them, offline runs hit DNS failures while fetching `cl100k_base`. Vendor the asset or mock encoder before enabling CI.

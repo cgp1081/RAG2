@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     admin_api_key: str | None = None
     embedding_model: str = "nomic-embed-text"
     ollama_base_url: AnyHttpUrl | str = "http://ollama:11434"
+    llm_base_url: AnyHttpUrl | str = "http://ollama:11434"
+    llm_model: str = "mistral"
+    llm_max_tokens: int = 512
+    llm_timeout_seconds: float = 15.0
     vector_dim: int = 1536
     vector_timeout_seconds: float = 10.0
     embedding_fallback_models: list[str] = []
