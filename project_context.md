@@ -57,9 +57,10 @@
 - `alembic.ini`: Root Alembic configuration with `path_separator = os` to avoid prepend warning.
 
 ## Next Immediate Steps
-- Reference `project_sequence.txt` to select the next unblocked task (likely remaining Phase 1 decision work or Phase 2 foundations).
-- Keep this context updated with any new architectural decisions, schema changes, or deviations encountered during upcoming tasks.
-- Wire the new RAG pipeline into the chat API layer and plan persistence/telemetry for generated answers.
+- Reference `project_sequence.txt` to select the next unblocked task (likely remaining Phase 2 decision work before voice/telephony).
+- Install new Python deps (`pandas`, `python-slugify`, `sqlglot`) and rerun migrations (`python3 -m alembic upgrade head`) after pulling updates.
+- Execute `python3 -m pytest tests/structured/test_query_service.py tests/api/test_structured_query.py tests/api/test_chat.py` plus existing suites once dependencies are installed.
+- Verify `rag ingest-table` + `rag dry-run-sql` end-to-end against a staging tenant to validate guard logs and hybrid prompts.
 - Resolve offline availability for `tiktoken` vocab files so full `python3 -m pytest` runs without network access.
 
 ## Progress Log

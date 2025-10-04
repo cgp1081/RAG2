@@ -5,7 +5,7 @@ import sqlite3
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 import pandas as pd
 import sqlglot
@@ -16,13 +16,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.config import Settings
 from backend.app.logging import get_logger
-from backend.db.models import (
-    StructuredColumn,
-    StructuredQueryLog,
-    StructuredRow,
-    StructuredTable,
-    Tenant,
-)
+from backend.db.models import StructuredColumn, StructuredQueryLog, StructuredRow, StructuredTable
 
 _LOGGER = get_logger(__name__)
 _MAX_LIMIT = 50
