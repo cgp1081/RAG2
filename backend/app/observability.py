@@ -48,6 +48,7 @@ __all__ = [
     "record_http_request",
     "record_ingestion_duration",
     "record_rag_duration",
+    "record_voice_call_duration",
 ]
 
 
@@ -59,6 +60,7 @@ _http_requests_total: Counter | None = None
 _http_request_duration_seconds: Histogram | None = None
 _ingestion_run_duration_seconds: Histogram | None = None
 _rag_pipeline_duration_seconds: Histogram | None = None
+_voice_call_duration_seconds: Histogram | None = None
 _tracing_configured = False
 
 
@@ -79,7 +81,7 @@ def init_metrics(settings: Settings) -> CollectorRegistry | None:
     """Initialise Prometheus metrics once."""
 
     global _metrics_ready, _registry, _http_requests_total, _http_request_duration_seconds
-    global _ingestion_run_duration_seconds, _rag_pipeline_duration_seconds
+    global _ingestion_run_duration_seconds, _rag_pipeline_duration_seconds, _voice_call_duration_seconds
 
     config = settings.observability_config()
     if not (config.observability_enabled and config.prometheus_enabled):
@@ -117,6 +119,13 @@ def init_metrics(settings: Settings) -> CollectorRegistry | None:
             labelnames=("tenant_id", "outcome"),
             registry=registry,
             buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+        )
+        _voice_call_duration_seconds = Histogram(
+            "voice_call_duration_seconds",
+            "Voice call handling duration in seconds",
+            labelnames=("tenant_id", "outcome"),
+            registry=registry,
+            buckets=(5, 15, 30, 60, 120, 300, 600),
         )
 
         _registry = registry
@@ -176,6 +185,23 @@ def record_rag_duration(
         return
 
     _rag_pipeline_duration_seconds.labels(
+        tenant_id=_normalise(tenant_id),
+        outcome=_normalise(outcome, "unknown"),
+    ).observe(duration_seconds)
+
+
+def record_voice_call_duration(
+    *,
+    tenant_id: str | None,
+    outcome: str,
+    duration_seconds: float,
+) -> None:
+    """Record voice call handling duration when enabled."""
+
+    if _voice_call_duration_seconds is None:
+        return
+
+    _voice_call_duration_seconds.labels(
         tenant_id=_normalise(tenant_id),
         outcome=_normalise(outcome, "unknown"),
     ).observe(duration_seconds)

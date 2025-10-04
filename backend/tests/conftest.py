@@ -117,6 +117,13 @@ def settings_override(database_url: str) -> Settings:
         trace_sample_rate=0.1,
         eval_top_k=3,
         eval_output_dir=Path(PROJECT_ROOT / "reports"),
+        twilio_account_sid=None,
+        twilio_auth_token=None,
+        voice_stt_api_key=None,
+        voice_tts_api_key=None,
+        voice_confidence_threshold=0.6,
+        voice_recordings_path=Path(PROJECT_ROOT / "data" / "recordings"),
+        voice_stream_timeout_seconds=25.0,
     )
 
 

@@ -57,6 +57,7 @@
 - `alembic.ini`: Root Alembic configuration with `path_separator = os` to avoid prepend warning.
 - Observability baseline assets: `backend/app/observability.py`, `backend/app/middleware/tracing.py`, `/metrics` router, `ops/prometheus/prometheus.yml`, and pytest coverage for metrics/tracing.
 - Retrieval evaluation harness: `backend/eval/harness.py`, `backend/eval/report.py`, YAML datasets under `backend/eval/datasets/`, CLI wiring in `backend/cli/eval.py`, and pytest coverage in `tests/eval/test_harness.py`.
+- Voice pipeline scaffolding: `backend/voice/*`, `backend/app/routers/voice.py`, `backend/voice/call_handler.py`, telephony migrations/models, and CLI simulation command `rag voice-simulate`.
 
 ## Next Immediate Steps
 - Reference `project_sequence.txt` to select the next unblocked task (likely remaining Phase 2 decision work before voice/telephony).
@@ -144,6 +145,12 @@
 - Created YAML/JSON dataset loader, evaluation harness, and reporting utilities writing to `reports/`.
 - Added `rag eval` Typer command to execute precision/recall benchmarks and emit Rich console summaries.
 - Updated configuration (`EVAL_TOP_K`, `EVAL_OUTPUT_DIR`), documentation, and pytest coverage (`tests/eval/test_harness.py`) ensuring failures trigger non-zero CLI exit codes.
+
+### 2025-10-07 — P7-S1: Telephony Integration MVP
+- Added Twilio/Deepgram adapters, call session persistence, and `/voice` endpoints returning TwiML and processing media streams.
+- Introduced new database tables (`call_sessions`, `call_turns`, `call_recordings`) with Alembic migration `0004_voice_sessions`; structured query logs migrated to `0005_structured_query_logs`.
+- Created voice simulation CLI (`rag voice-simulate`) and added observability hooks (`voice_call_duration_seconds`).
+- Implemented pytest coverage for voice call handler and API surface (`tests/voice/test_call_handler.py`, `tests/api/test_voice.py`).
 
 ## Deviations & Notes
 - Test fixtures reuse the configured Postgres instance instead of creating per-test databases (original brief suggested ephemeral DBs). Document this if multi-tenant isolation becomes critical.

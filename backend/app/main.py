@@ -15,6 +15,7 @@ from .middleware import TracingMiddleware
 from .logging import RequestLoggingMiddleware, configure_logging, get_logger
 from .observability import configure_tracing, init_metrics
 from .routers import chat_router, health_router, retrieval_router, structured_router
+from .routers.voice import router as voice_router
 from .routers.ingestion import router as admin_router
 from .routers.metrics import router as metrics_router
 
@@ -35,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(structured_router)
     app.include_router(chat_router)
     app.include_router(retrieval_router)
+    app.include_router(voice_router)
 
     observability = settings.observability_config()
     registry = init_metrics(settings)

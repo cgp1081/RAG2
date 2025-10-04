@@ -60,6 +60,11 @@ class Tenant(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    call_sessions: Mapped[list["CallSession"]] = relationship(
+        back_populates="tenant",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
 
 class Source(Base):
@@ -444,6 +449,127 @@ class StructuredQueryLog(Base):
     table: Mapped[StructuredTable | None] = relationship(back_populates="query_logs", lazy="selectin")
 
 
+class CallSession(Base):
+    __tablename__ = "call_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=_UUID_SERVER_DEFAULT,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        sa.ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    twilio_call_sid: Mapped[str] = mapped_column(sa.String(64), nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(
+        sa.Enum(
+            "initiated",
+            "running",
+            "completed",
+            "failed",
+            name="call_session_status",
+        ),
+        nullable=False,
+        default="initiated",
+        server_default="initiated",
+    )
+    caller_number: Mapped[str | None] = mapped_column(sa.String(32), nullable=True)
+    callee_number: Mapped[str | None] = mapped_column(sa.String(32), nullable=True)
+    confidence: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
+    transcript: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    error: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=sa.func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=sa.func.now(),
+        onupdate=sa.func.now(),
+    )
+    ended_at: Mapped[datetime | None] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=True,
+    )
+
+    tenant: Mapped[Tenant] = relationship(back_populates="call_sessions", lazy="selectin")
+    turns: Mapped[list["CallTurn"]] = relationship(
+        back_populates="session",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="CallTurn.sequence",
+    )
+    recordings: Mapped[list["CallRecording"]] = relationship(
+        back_populates="session",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class CallTurn(Base):
+    __tablename__ = "call_turns"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=_UUID_SERVER_DEFAULT,
+    )
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        sa.ForeignKey("call_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    sequence: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    speaker: Mapped[str] = mapped_column(
+        sa.Enum("caller", "assistant", name="call_turn_speaker"),
+        nullable=False,
+    )
+    text: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    confidence: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=True,
+    )
+    ended_at: Mapped[datetime | None] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=True,
+    )
+
+    session: Mapped[CallSession] = relationship(back_populates="turns", lazy="selectin")
+
+
+class CallRecording(Base):
+    __tablename__ = "call_recordings"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=_UUID_SERVER_DEFAULT,
+    )
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        sa.ForeignKey("call_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    media_uri: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    content_type: Mapped[str | None] = mapped_column(sa.String(64), nullable=True)
+    duration_seconds: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
+    storage_path: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=sa.func.now(),
+    )
+
+    session: Mapped[CallSession] = relationship(back_populates="recordings", lazy="selectin")
+
+
 class IngestionEventType:
     """Canonical ingestion event types."""
 
@@ -469,4 +595,7 @@ __all__ = [
     "StructuredColumn",
     "StructuredRow",
     "StructuredQueryLog",
+    "CallSession",
+    "CallTurn",
+    "CallRecording",
 ]

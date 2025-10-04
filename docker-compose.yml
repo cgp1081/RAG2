@@ -49,8 +49,16 @@ services:
       TRACE_SAMPLE_RATE: ${TRACE_SAMPLE_RATE:-0.1}
       EVAL_TOP_K: ${EVAL_TOP_K:-5}
       EVAL_OUTPUT_DIR: ${EVAL_OUTPUT_DIR:-/app/reports}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      VOICE_STT_API_KEY: ${VOICE_STT_API_KEY:-}
+      VOICE_TTS_API_KEY: ${VOICE_TTS_API_KEY:-}
+      VOICE_CONFIDENCE_THRESHOLD: ${VOICE_CONFIDENCE_THRESHOLD:-0.6}
+      VOICE_RECORDINGS_PATH: ${VOICE_RECORDINGS_PATH:-/app/data/recordings}
+      VOICE_STREAM_TIMEOUT_SECONDS: ${VOICE_STREAM_TIMEOUT_SECONDS:-25.0}
     volumes:
       - ./backend:/app/backend
+      - ./data/recordings:${VOICE_RECORDINGS_PATH:-/app/data/recordings}
     ports:
       - "8000:8000"
     command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload

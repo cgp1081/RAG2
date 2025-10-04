@@ -31,6 +31,9 @@ dependencies = [
     "opentelemetry-instrumentation-httpx",
     "pyyaml",
     "rich",
+    "twilio",
+    "deepgram-sdk",
+    "aiofiles",
 ]
 
 [project.optional-dependencies]

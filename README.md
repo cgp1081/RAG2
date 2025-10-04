@@ -141,6 +141,7 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
   - `rag dry-run --query "..." --tenant <id>` to exercise the full RAG pipeline without hitting production chat endpoints.
   - `rag dry-run-sql --tenant <slug> --table <name> --query "SELECT ..."` to preview guarded structured queries and review results/logs locally.
   - `rag eval --dataset backend/eval/datasets/example.yaml --tenant <id>` to benchmark retrieval precision/recall against curated golden datasets; reports land in `reports/` by default.
+  - `rag voice-simulate --audio <file.wav> --tenant <uuid>` to replay local audio through the voice pipeline using stub adapters for STT/TTS.
 
 - **API Endpoints:**
   - REST endpoints for chat, ingest, and metadata management.
@@ -175,6 +176,7 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
   - Retrieval-specific environment knobs (`RETRIEVAL_TOP_K_DEFAULT`, `RETRIEVAL_SCORE_FLOOR`, `RETRIEVAL_SCORE_CEILING`, `RETRIEVAL_DIAGNOSTICS`) tune ranking behaviour and logging verbosity.
   - Structured ingestion/query guard knobs (`STRUCTURED_MAX_ROWS`, `STRUCTURED_SAMPLE_SIZE`, `SQL_QUERY_TIMEOUT`, `SQL_ALLOWED_FUNCTIONS`) keep table ingestion bounded and SQL access safe.
   - Observability toggles: `OBSERVABILITY_ENABLED`, `PROMETHEUS_ENABLED`, `OTEL_ENABLED`, and `TRACE_SAMPLE_RATE` gate metrics/tracing. When metrics are enabled, `/metrics` exposes Prometheus data; launch the optional Prometheus/Loki/Grafana stack with `docker compose --profile observability up -d`.
+  - Telephony: provide `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `VOICE_STT_API_KEY`, `VOICE_TTS_API_KEY`, and expose a public webhook (e.g., via ngrok) before enabling `/voice` endpoints. Use `rag voice-simulate` to dry-run the call flow locally without external dependencies.
 
 ---
 

@@ -63,6 +63,13 @@ class Settings(BaseSettings):
     trace_sample_rate: float = 0.1
     eval_top_k: int = 5
     eval_output_dir: Path | str = Path("reports")
+    twilio_account_sid: str | None = None
+    twilio_auth_token: str | None = None
+    voice_stt_api_key: str | None = None
+    voice_tts_api_key: str | None = None
+    voice_confidence_threshold: float = 0.6
+    voice_recordings_path: Path | str = Path("data/recordings")
+    voice_stream_timeout_seconds: float = 25.0
 
     model_config = SettingsConfigDict(env_prefix="", extra="ignore", case_sensitive=False)
 
@@ -171,6 +178,27 @@ class Settings(BaseSettings):
         return self.EvalConfig(
             top_k=max(int(self.eval_top_k), 1),
             output_dir=Path(self.eval_output_dir).resolve(),
+        )
+
+    @dataclass(slots=True)
+    class VoiceConfig:
+        twilio_account_sid: str | None
+        twilio_auth_token: str | None
+        stt_api_key: str | None
+        tts_api_key: str | None
+        confidence_threshold: float
+        recordings_path: Path
+        stream_timeout_seconds: float
+
+    def voice_config(self) -> "Settings.VoiceConfig":
+        return self.VoiceConfig(
+            twilio_account_sid=self.twilio_account_sid,
+            twilio_auth_token=self.twilio_auth_token,
+            stt_api_key=self.voice_stt_api_key,
+            tts_api_key=self.voice_tts_api_key,
+            confidence_threshold=float(self.voice_confidence_threshold),
+            recordings_path=Path(self.voice_recordings_path).resolve(),
+            stream_timeout_seconds=float(self.voice_stream_timeout_seconds),
         )
 
 
