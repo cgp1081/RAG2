@@ -5,11 +5,12 @@ import typer
 
 from .debug import debug_retrieve
 from .dry_run import dry_run
-from .ingest import ingest_files
+from .ingest import ingest_files, ingest_table
 
 app = typer.Typer(help="RAG platform management commands")
 app.command("ingest-files")(ingest_files)
 app.command("debug-retrieve")(debug_retrieve)
 app.command("dry-run")(dry_run)
+app.command("ingest-table")(ingest_table)
 
 __all__ = ["app"]

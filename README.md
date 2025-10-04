@@ -89,6 +89,7 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
    - Infer schema metadata, primary keys, and relationships.
    - Snapshot tables into tenant-scoped Postgres schemas with versioning.
    - Emit per-column statistics and summary embeddings for retrieval.
+   - CSV ingestion is available via `rag ingest-table --csv <path>` with row/sample caps controlled by `STRUCTURED_MAX_ROWS` and `STRUCTURED_SAMPLE_SIZE`.
 
 4. **Deduplication & Tagging**
    - Exact hashing (SHA256) plus near-duplicate cosine similarity.
@@ -134,11 +135,10 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
   - Clients must send `X-Admin-API-Key` matching the `ADMIN_API_KEY` environment variable; missing or mismatched keys receive `401`, and leaving the variable unset disables the routes entirely.
 
 - **CLI Utilities:**
-  - `rag ingest <path>` for manual uploads.
-  - `rag reembed --model <name>` to trigger re-embedding.
-  - `rag sync <connector>` for ad-hoc refresh.
-  - `rag table register <source>` to capture schemas and manage refresh schedules.
+  - `rag ingest-files --path <dir> --tenant <id>` for manual document uploads.
+  - `rag ingest-table --csv <path> --table-name <slug>` to ingest structured CSVs with schema inference and versioning.
   - `rag debug-retrieve --query "..." --tenant <id>` to inspect ranked chunks and scoring locally (diagnostic only).
+  - `rag dry-run --query "..." --tenant <id>` to exercise the full RAG pipeline without hitting production chat endpoints.
 
 - **API Endpoints:**
   - REST endpoints for chat, ingest, and metadata management.

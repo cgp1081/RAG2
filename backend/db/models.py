@@ -50,6 +50,11 @@ class Tenant(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    structured_tables: Mapped[list["StructuredTable"]] = relationship(
+        back_populates="tenant",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
 
 class Source(Base):
@@ -271,6 +276,127 @@ class IngestionEvent(Base):
     run: Mapped[IngestionRun] = relationship(back_populates="events", lazy="selectin")
 
 
+class StructuredTable(Base):
+    __tablename__ = "structured_tables"
+    __table_args__ = (
+        sa.Index("ix_structured_tables_tenant", "tenant_id"),
+        sa.UniqueConstraint(
+            "tenant_id", "table_name", "version", name="uq_structured_tables_version"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=_UUID_SERVER_DEFAULT,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        sa.ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    table_name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
+    display_name: Mapped[str | None] = mapped_column(sa.String(255), nullable=True)
+    source_path: Mapped[str] = mapped_column(sa.String(1024), nullable=False)
+    version: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    row_count: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    ingested_at: Mapped[datetime | None] = mapped_column(sa.TIMESTAMP(timezone=True), nullable=True)
+    schema_hash: Mapped[str | None] = mapped_column(sa.String(128), nullable=True)
+    status: Mapped[str] = mapped_column(sa.String(32), nullable=False, default="processing")
+    error: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=sa.func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=sa.func.now(),
+        onupdate=sa.func.now(),
+    )
+
+    tenant: Mapped[Tenant] = relationship(back_populates="structured_tables", lazy="selectin")
+    columns: Mapped[list["StructuredColumn"]] = relationship(
+        back_populates="table",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="StructuredColumn.column_order",
+    )
+    rows: Mapped[list["StructuredRow"]] = relationship(
+        back_populates="table",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="StructuredRow.row_index",
+    )
+
+
+class StructuredColumn(Base):
+    __tablename__ = "structured_columns"
+    __table_args__ = (
+        sa.Index("ix_structured_columns_table_name", "table_id", "name"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=_UUID_SERVER_DEFAULT,
+    )
+    table_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        sa.ForeignKey("structured_tables.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    column_order: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(sa.String(255), nullable=False)
+    data_type: Mapped[str] = mapped_column(sa.String(50), nullable=False)
+    is_primary_key: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=False)
+    nullable: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=True)
+    sample_values: Mapped[dict | list | None] = mapped_column(JSONB, nullable=True)
+    stats: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=sa.func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=sa.func.now(),
+        onupdate=sa.func.now(),
+    )
+
+    table: Mapped[StructuredTable] = relationship(back_populates="columns", lazy="selectin")
+
+
+class StructuredRow(Base):
+    __tablename__ = "structured_rows"
+    __table_args__ = (
+        sa.Index("ix_structured_rows_table_row_index", "table_id", "row_index", unique=True),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=_UUID_SERVER_DEFAULT,
+    )
+    table_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        sa.ForeignKey("structured_tables.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    row_index: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=sa.func.now(),
+    )
+
+    table: Mapped[StructuredTable] = relationship(back_populates="rows", lazy="selectin")
+
+
 class IngestionEventType:
     """Canonical ingestion event types."""
 
@@ -292,4 +418,7 @@ __all__ = [
     "IngestionRun",
     "IngestionEvent",
     "IngestionEventType",
+    "StructuredTable",
+    "StructuredColumn",
+    "StructuredRow",
 ]

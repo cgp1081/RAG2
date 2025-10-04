@@ -100,6 +100,8 @@ def settings_override(database_url: str) -> Settings:
         chat_api_key="test-chat-key",
         chat_timeout_seconds=3.0,
         chat_max_tokens=256,
+        structured_max_rows=1000,
+        structured_sample_size=3,
         local_ingest_root=Path(PROJECT_ROOT / "tests" / "fixtures" / "docs"),
         chunk_size=200,
         chunk_overlap=20,

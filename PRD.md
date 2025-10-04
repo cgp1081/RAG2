@@ -170,6 +170,7 @@ llm_config:
 - Capture schema metadata, primary keys, and relationships
 - Persist per-tenant table snapshots in relational storage (Postgres)
 - Generate column statistics and summary embeddings for retrieval
+- Provide a CLI (`rag ingest-table --csv <path>`) to ingest CSV snapshots with configurable row caps (`STRUCTURED_MAX_ROWS`) and sample sizing (`STRUCTURED_SAMPLE_SIZE`) for column stats
 - Link table and column records to vector entries for hybrid doc/table responses
 
 ---

@@ -21,6 +21,8 @@ dependencies = [
     "tiktoken",
     "pypdf",
     "numpy>=1.26",
+    "pandas",
+    "python-slugify",
 ]
 
 [project.optional-dependencies]

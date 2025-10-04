@@ -44,6 +44,7 @@
 ### 3.5 Ingestion & Connector Workers
 - **Function:** Adaptors for document repositories, structured data sources, and scheduling ingest/re-embed jobs.
 - **Justification:** Required for building and refreshing the knowledge base across multiple sources.
+- **Current Implementation Notes:** CSV uploads flow through a chunked pandas pipeline with schema inference, versioning, and row caps enforced by `STRUCTURED_MAX_ROWS`/`STRUCTURED_SAMPLE_SIZE`. CLI command `rag ingest-table` orchestrates the workflow; future connectors can reuse the same ingestion service.
 - **Decisions Pending:** Prioritize connector roadmap, decide on worker tech (Celery, RQ, BullMQ), and define storage for credentials.
 
 ### 3.6 Structured Data Service

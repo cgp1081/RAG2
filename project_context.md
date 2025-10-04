@@ -48,10 +48,12 @@
 - `backend/cli/`: Typer CLI entry points (`rag ingest-files`, `rag debug-retrieve`, `rag dry-run`) for ingestion, retrieval inspection, and end-to-end RAG validation.
 - `backend/ingestion/`: Chunking, deduplication, and pipeline modules powering local file ingestion.
 - `backend/rag/`: Prompt builder, LLM client, and RAG pipeline wiring retrieved chunks into cited answers.
+- `backend/structured/`: Schema inference and structured table ingestion pipeline for CSV sources.
 - `backend/tests/test_migrations.py`, `backend/tests/test_models_relationships.py`: Regression coverage for Alembic upgrade and ORM relationships.
 - `backend/tests/services/*`: Service-level coverage for vector store and embedding client behavior.
 - `tests/ingestion/*` + `tests/fixtures/docs/`: Pipeline tests with fakes and sample documents.
 - `tests/rag/test_pipeline.py`: Async RAG pipeline coverage with retrieval/LLM fakes.
+- `tests/structured/test_ingest.py`: Structured ingestion coverage including schema inference and failure handling.
 - `alembic.ini`: Root Alembic configuration with `path_separator = os` to avoid prepend warning.
 
 ## Next Immediate Steps
@@ -114,6 +116,13 @@
 - Implemented new `rag dry-run` CLI command to exercise the full pipeline with optional filters and print prompt/answer/citations.
 - Authored async unit tests covering citation assembly, empty-context fallback, and blank completion handling (`tests/rag/test_pipeline.py`).
 - Verification: `python3 -m pytest tests/rag/test_pipeline.py` (passes). Full `python3 -m pytest` currently fails when `tiktoken` attempts to download remote vocab data in sandboxed environments; need cached assets for offline CI.
+
+### 2025-09-23 — P2-S3: Structured CSV Ingestion
+- Added pandas + python-slugify dependencies and structured ingestion settings (`STRUCTURED_MAX_ROWS`, `STRUCTURED_SAMPLE_SIZE`).
+- Introduced structured tables/columns/rows schema via Alembic migration + ORM relationships with cascade deletes.
+- Built schema inference utilities (dtype detection, primary-key guessing, slugging) and a chunked CSV ingestion pipeline with logging + schema hashing.
+- Expanded CLI with `rag ingest-table` to ingest CSVs per tenant, supporting overrides for row cap/sample size.
+- Added regression coverage for migrations and structured ingestion (`tests/structured/test_ingest.py`), including failure paths.
 
 ## Deviations & Notes
 - Test fixtures reuse the configured Postgres instance instead of creating per-test databases (original brief suggested ephemeral DBs). Document this if multi-tenant isolation becomes critical.

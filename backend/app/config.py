@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     chat_api_key: str | None = None
     chat_timeout_seconds: float = 20.0
     chat_max_tokens: int = 600
+    structured_max_rows: int = 50000
+    structured_sample_size: int = 5
     vector_dim: int = 1536
     vector_timeout_seconds: float = 10.0
     embedding_fallback_models: list[str] = []
@@ -94,6 +96,19 @@ class Settings(BaseSettings):
             vector_dim=self.vector_dim,
         )
 
+    @dataclass(slots=True)
+    class StructuredConfig:
+        default_tenant: str
+        max_rows: int
+        sample_size: int
+
+    def structured_config(self) -> "Settings.StructuredConfig":
+        return self.StructuredConfig(
+            default_tenant=self.ingest_default_tenant,
+            max_rows=self.structured_max_rows,
+            sample_size=self.structured_sample_size,
+        )
+
 
 def _build_settings() -> Settings:
     return Settings.load()
@@ -118,4 +133,9 @@ def get_admin_api_key() -> str | None:
     return get_settings().admin_api_key
 
 
-__all__ = ["Settings", "get_settings", "settings_dependency", "get_admin_api_key"]
+__all__ = [
+    "Settings",
+    "get_settings",
+    "settings_dependency",
+    "get_admin_api_key",
+]
