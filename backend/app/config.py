@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     llm_model: str = "mistral"
     llm_max_tokens: int = 512
     llm_timeout_seconds: float = 15.0
+    chat_api_key: str | None = None
+    chat_timeout_seconds: float = 20.0
+    chat_max_tokens: int = 600
     vector_dim: int = 1536
     vector_timeout_seconds: float = 10.0
     embedding_fallback_models: list[str] = []

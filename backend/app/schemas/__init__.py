@@ -1,4 +1,11 @@
 """Pydantic schemas for API responses."""
+from .chat import (
+    ChatMetadataFilters,
+    ChatQueryRequest,
+    ChatQueryResponse,
+    CitationSchema,
+    TokenUsageSchema,
+)
 from .ingestion import (
     DocumentStatus,
     IngestionRunSummary,
@@ -13,6 +20,11 @@ from .retrieval import (
 )
 
 __all__ = [
+    "ChatMetadataFilters",
+    "ChatQueryRequest",
+    "ChatQueryResponse",
+    "CitationSchema",
+    "TokenUsageSchema",
     "DocumentStatus",
     "IngestionRunSummary",
     "PaginatedDocuments",
