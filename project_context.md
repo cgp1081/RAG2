@@ -56,6 +56,7 @@
 - `tests/structured/test_ingest.py`: Structured ingestion coverage including schema inference and failure handling.
 - `alembic.ini`: Root Alembic configuration with `path_separator = os` to avoid prepend warning.
 - Observability baseline assets: `backend/app/observability.py`, `backend/app/middleware/tracing.py`, `/metrics` router, `ops/prometheus/prometheus.yml`, and pytest coverage for metrics/tracing.
+- Retrieval evaluation harness: `backend/eval/harness.py`, `backend/eval/report.py`, YAML datasets under `backend/eval/datasets/`, CLI wiring in `backend/cli/eval.py`, and pytest coverage in `tests/eval/test_harness.py`.
 
 ## Next Immediate Steps
 - Reference `project_sequence.txt` to select the next unblocked task (likely remaining Phase 2 decision work before voice/telephony).
@@ -138,6 +139,11 @@
 - Introduced tracing middleware plus OpenTelemetry configuration hooks; tracing activates with `OTEL_ENABLED=true` and honours `TRACE_SAMPLE_RATE`.
 - Provisioned optional Prometheus/Loki/Grafana services via `docker compose --profile observability up -d`; `.env.example` documents new observability toggles.
 - Added pytest coverage for metrics endpoint, tracing middleware, and tracing configuration stubs to prevent regressions.
+
+### 2025-10-06 — P6-S2: Retrieval Evaluation Harness
+- Created YAML/JSON dataset loader, evaluation harness, and reporting utilities writing to `reports/`.
+- Added `rag eval` Typer command to execute precision/recall benchmarks and emit Rich console summaries.
+- Updated configuration (`EVAL_TOP_K`, `EVAL_OUTPUT_DIR`), documentation, and pytest coverage (`tests/eval/test_harness.py`) ensuring failures trigger non-zero CLI exit codes.
 
 ## Deviations & Notes
 - Test fixtures reuse the configured Postgres instance instead of creating per-test databases (original brief suggested ephemeral DBs). Document this if multi-tenant isolation becomes critical.

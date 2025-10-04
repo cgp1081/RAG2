@@ -115,6 +115,8 @@ def settings_override(database_url: str) -> Settings:
         otel_enabled=False,
         otel_exporter_otlp_endpoint=None,
         trace_sample_rate=0.1,
+        eval_top_k=3,
+        eval_output_dir=Path(PROJECT_ROOT / "reports"),
     )
 
 

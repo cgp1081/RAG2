@@ -26,7 +26,9 @@ class Settings(BaseSettings):
     qdrant_url: AnyHttpUrl | str = "http://qdrant:6333"
     qdrant_api_key: str | None = None
     app_version: str = "0.1.0"
-    database_url: PostgresDsn | str = "postgresql+psycopg://postgres:postgres@postgres:5432/postgres"
+    database_url: PostgresDsn | str = (
+        "postgresql+psycopg://postgres:postgres@postgres:5432/postgres"
+    )
     db_pool_size: int = 10
     admin_api_key: str | None = None
     embedding_model: str = "nomic-embed-text"
@@ -59,6 +61,8 @@ class Settings(BaseSettings):
     otel_enabled: bool = False
     otel_exporter_otlp_endpoint: AnyHttpUrl | None = None
     trace_sample_rate: float = 0.1
+    eval_top_k: int = 5
+    eval_output_dir: Path | str = Path("reports")
 
     model_config = SettingsConfigDict(env_prefix="", extra="ignore", case_sensitive=False)
 
@@ -156,6 +160,17 @@ class Settings(BaseSettings):
             otel_enabled=self.otel_enabled,
             otel_exporter_otlp_endpoint=self.otel_exporter_otlp_endpoint,
             trace_sample_rate=self.trace_sample_rate,
+        )
+
+    @dataclass(slots=True)
+    class EvalConfig:
+        top_k: int
+        output_dir: Path
+
+    def eval_config(self) -> "Settings.EvalConfig":
+        return self.EvalConfig(
+            top_k=max(int(self.eval_top_k), 1),
+            output_dir=Path(self.eval_output_dir).resolve(),
         )
 
 

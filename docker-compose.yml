@@ -47,6 +47,8 @@ services:
       OTEL_ENABLED: ${OTEL_ENABLED:-false}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       TRACE_SAMPLE_RATE: ${TRACE_SAMPLE_RATE:-0.1}
+      EVAL_TOP_K: ${EVAL_TOP_K:-5}
+      EVAL_OUTPUT_DIR: ${EVAL_OUTPUT_DIR:-/app/reports}
     volumes:
       - ./backend:/app/backend
     ports:

@@ -140,6 +140,7 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
   - `rag debug-retrieve --query "..." --tenant <id>` to inspect ranked chunks and scoring locally (diagnostic only).
   - `rag dry-run --query "..." --tenant <id>` to exercise the full RAG pipeline without hitting production chat endpoints.
   - `rag dry-run-sql --tenant <slug> --table <name> --query "SELECT ..."` to preview guarded structured queries and review results/logs locally.
+  - `rag eval --dataset backend/eval/datasets/example.yaml --tenant <id>` to benchmark retrieval precision/recall against curated golden datasets; reports land in `reports/` by default.
 
 - **API Endpoints:**
   - REST endpoints for chat, ingest, and metadata management.
@@ -169,6 +170,7 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
 - **Scaling:** Horizontal scaling on workers and API; asynchronous task queue (Celery/RQ/BullMQ).
 - **Observability Stack:** Prometheus + Grafana + Loki; alerting on latency/error thresholds.
 - **Testing:** Load tests targeting 100+ concurrent sessions, retrieval precision benchmarks, connector integration tests.
+  - Retrieval evaluation harness: curate YAML/JSON datasets with expected documents/snippets, then run `rag eval --dataset <path> --tenant <id>` to generate precision/recall reports in `reports/`. Refresh datasets regularly and record the update timestamp in file comments.
 - **Configuration:** Set `ADMIN_API_KEY` wherever the backend runs to enable the operator endpoints; use distinct values per environment and rotate via your secrets manager.
   - Retrieval-specific environment knobs (`RETRIEVAL_TOP_K_DEFAULT`, `RETRIEVAL_SCORE_FLOOR`, `RETRIEVAL_SCORE_CEILING`, `RETRIEVAL_DIAGNOSTICS`) tune ranking behaviour and logging verbosity.
   - Structured ingestion/query guard knobs (`STRUCTURED_MAX_ROWS`, `STRUCTURED_SAMPLE_SIZE`, `SQL_QUERY_TIMEOUT`, `SQL_ALLOWED_FUNCTIONS`) keep table ingestion bounded and SQL access safe.

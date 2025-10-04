@@ -285,6 +285,7 @@ llm_config:
 ### Performance Testing
 - Use Locust or k6 for concurrent chat testing
 - Use pytest for ingestion and embedding benchmarks
+- Maintain a golden retrieval dataset and execute `rag eval --dataset <path>` regularly to track precision/recall regressions; refresh dataset timestamps during QA cycles.
 
 ---
 

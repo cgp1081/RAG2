@@ -29,6 +29,8 @@ dependencies = [
     "opentelemetry-exporter-otlp",
     "opentelemetry-instrumentation-fastapi",
     "opentelemetry-instrumentation-httpx",
+    "pyyaml",
+    "rich",
 ]
 
 [project.optional-dependencies]

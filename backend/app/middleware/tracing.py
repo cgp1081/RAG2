@@ -23,7 +23,8 @@ class TracingMiddleware(BaseHTTPMiddleware):
         trace_id = request.headers.get("X-Trace-Id") or str(uuid.uuid4())
         tenant_id = request.headers.get("X-Tenant-Id")
 
-        if tenant_id is None and request.headers.get("content-type", "").startswith("application/json"):
+        content_type = request.headers.get("content-type", "")
+        if tenant_id is None and content_type.startswith("application/json"):
             body_bytes = await request.body()
             if body_bytes:
                 try:

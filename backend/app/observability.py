@@ -190,8 +190,17 @@ def configure_tracing(settings: Settings, app: FastAPI) -> bool:
     if not (config.observability_enabled and config.otel_enabled):
         return False
 
-    if trace is None or TracerProvider is None or BatchSpanProcessor is None or TraceIdRatioBased is None:
-        _logger.warning("observability.tracing.unavailable", reason="opentelemetry not installed")
+    telemetry_unavailable = (
+        trace is None
+        or TracerProvider is None
+        or BatchSpanProcessor is None
+        or TraceIdRatioBased is None
+    )
+    if telemetry_unavailable:
+        _logger.warning(
+            "observability.tracing.unavailable",
+            reason="opentelemetry not installed",
+        )
         return False
 
     if _tracing_configured:
@@ -220,5 +229,8 @@ def configure_tracing(settings: Settings, app: FastAPI) -> bool:
         HTTPXClientInstrumentor().instrument(tracer_provider=tracer_provider)
 
     _tracing_configured = True
-    _logger.info("observability.tracing.initialised", exporter=exporter.__class__.__name__ if exporter else "console")
+    _logger.info(
+        "observability.tracing.initialised",
+        exporter=(exporter.__class__.__name__ if exporter else "console"),
+    )
     return True

@@ -1,0 +1,14 @@
+# Retrieval evaluation dataset
+# Optional keys per example:
+#   expected_documents: list of document IDs expected in results
+#   expected_snippets: list of substrings that should appear in retrieved content
+#   metadata_filters: mapping passed to RetrievalFilters (e.g., visibility scopes)
+#   weight: multiplier when aggregating metrics (defaults to 1.0)
+- question: "What is the PTO policy?"
+  expected_documents:
+    - "doc-employee-handbook"
+  expected_snippets:
+    - "paid time off"
+  metadata_filters:
+    visibility_scope: "employee"
+  notes: "Baseline HR policy"

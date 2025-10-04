@@ -1,7 +1,8 @@
 """Deterministic retrieval engine built on the vector store."""
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from time import perf_counter
 from typing import Any
 
 import numpy as np
@@ -30,11 +31,13 @@ class RetrievalService:
         vector_store: VectorStoreClient,
         settings: Settings,
         logger=None,
+        diagnostics_callback: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         self._embedding_service = embedding_service
         self._vector_store = vector_store
         self._settings = settings
         self._logger = logger or get_logger(__name__)
+        self._diagnostics_callback = diagnostics_callback
 
     async def retrieve(
         self,
@@ -49,22 +52,34 @@ class RetrievalService:
         resolved_filters = filters
         if filters is None:
             resolved_filters = RetrievalFilters()
+        start_time = perf_counter()
+
         request = RetrievalRequest(
             query=query,
             tenant_id=tenant_id,
-            filters=resolved_filters if resolved_filters and not resolved_filters.is_empty() else None,
+            filters=(
+                resolved_filters
+                if resolved_filters and not resolved_filters.is_empty()
+                else None
+            ),
             top_k=max(top_k or self._settings.retrieval_top_k_default, 1),
             score_floor=self._settings.retrieval_score_floor,
         )
 
         embeddings = await self._embedding_service.embed([request.query])
         if not embeddings:
-            diagnostics = (
-                {"reason": "empty_embedding"}
-                if self._settings.retrieval_diagnostics
-                else {}
+            diagnostics = self._emit_diagnostics(
+                {
+                    "reason": "empty_embedding",
+                    "requested_top_k": request.top_k,
+                    "latency_ms": (perf_counter() - start_time) * 1000,
+                }
             )
-            return RetrievalResponse(chunks=[], applied_filters=request.filters, diagnostics=diagnostics)
+            return RetrievalResponse(
+                chunks=[],
+                applied_filters=request.filters,
+                diagnostics=diagnostics,
+            )
 
         vector_filters = request.filters.as_dict() if request.filters else None
         results = await self._vector_store.search_with_filters(
@@ -75,10 +90,12 @@ class RetrievalService:
         )
 
         if not results:
-            diagnostics = (
-                {"reason": "no_results", "requested_top_k": request.top_k}
-                if self._settings.retrieval_diagnostics
-                else {}
+            diagnostics = self._emit_diagnostics(
+                {
+                    "reason": "no_results",
+                    "requested_top_k": request.top_k,
+                    "latency_ms": (perf_counter() - start_time) * 1000,
+                }
             )
             self._logger.info(
                 "retrieval.completed",
@@ -88,7 +105,11 @@ class RetrievalService:
                 dropped=0,
                 raw_results=0,
             )
-            return RetrievalResponse(chunks=[], applied_filters=request.filters, diagnostics=diagnostics)
+            return RetrievalResponse(
+                chunks=[],
+                applied_filters=request.filters,
+                diagnostics=diagnostics,
+            )
 
         normalized_scores = self._normalize_scores([result.score for result in results])
 
@@ -120,26 +141,17 @@ class RetrievalService:
             kept.append(chunk)
             kept_scores.append(float(norm_score))
 
-        diagnostics: dict[str, Any] = {}
-        if self._settings.retrieval_diagnostics:
-            stats = {}
-            if kept_scores:
-                scores_array = np.array(kept_scores, dtype=float)
-                stats = {
-                    "count": len(kept_scores),
-                    "min": float(scores_array.min()),
-                    "max": float(scores_array.max()),
-                    "mean": float(scores_array.mean()),
-                    "std": float(scores_array.std(ddof=0)),
-                }
-            diagnostics = {
+        diagnostics = self._emit_diagnostics(
+            {
                 "requested_top_k": request.top_k,
                 "raw_results": len(results),
                 "kept": len(kept),
                 "dropped_below_floor": dropped,
-                "score_stats": stats,
+                "score_stats": _score_stats(kept_scores),
                 "floor": request.score_floor,
+                "latency_ms": (perf_counter() - start_time) * 1000,
             }
+        )
 
         self._logger.info(
             "retrieval.completed",
@@ -173,3 +185,34 @@ class RetrievalService:
             return np.ones_like(arr, dtype=float)
         normalized = (arr - min_score) / (max_score - min_score)
         return normalized
+
+    def set_diagnostics_callback(
+        self, callback: Callable[[dict[str, Any]], None] | None
+    ) -> None:
+        """Register a callback for retrieval diagnostics payloads."""
+
+        self._diagnostics_callback = callback
+
+    def _emit_diagnostics(self, payload: dict[str, Any]) -> dict[str, Any]:
+        if not self._settings.retrieval_diagnostics:
+            return {}
+        diagnostics = dict(payload)
+        if self._diagnostics_callback is not None:
+            try:
+                self._diagnostics_callback(dict(diagnostics))
+            except Exception:  # pragma: no cover - defensive
+                self._logger.warning("retrieval.diagnostics_hook_failed")
+        return diagnostics
+
+
+def _score_stats(scores: list[float]) -> dict[str, float | int]:
+    if not scores:
+        return {}
+    scores_array = np.array(scores, dtype=float)
+    return {
+        "count": len(scores),
+        "min": float(scores_array.min()),
+        "max": float(scores_array.max()),
+        "mean": float(scores_array.mean()),
+        "std": float(scores_array.std(ddof=0)),
+    }

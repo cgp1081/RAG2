@@ -119,6 +119,7 @@
 - **Function:** Ensure regression coverage for ingestion, retrieval, and voice flows.
 - **Justification:** Voice integrations introduce more failure modes; automated tests mitigate risk.
 - **Decisions Pending:** Define test framework (pytest, Playwright, call simulators) and CI/CD pipeline requirements.
+- **Implementation Notes:** Retrieval harness (`rag eval`) produces precision/recall reports from YAML datasets saved under `backend/eval/datasets/`; store outputs in `reports/` and flag regressions when precision/recall < 1.0.
 
 ## 7. Implementation Guardrails
 - Do **not** begin building any components until the pending decisions listed above are explicitly resolved and documented.
