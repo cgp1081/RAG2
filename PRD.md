@@ -181,6 +181,7 @@ llm_config:
 - Uploads, tagging, deduplication
 - Permissions & exposure settings
 - Table catalog with schema previews, access controls, and exports
+- Structured query console with guarded SQL execution, result previews, and audit logs
 - Logs and usage stats
 
 ### User Chat Portals

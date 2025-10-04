@@ -77,6 +77,18 @@ def test_migration_creates_expected_tables(db_engine):
             "payload",
             "created_at",
         },
+        "structured_query_logs": {
+            "id",
+            "tenant_id",
+            "table_id",
+            "executed_sql",
+            "parameters",
+            "status",
+            "reason",
+            "row_count",
+            "duration_ms",
+            "created_at",
+        },
     }
 
     with db_engine.connect() as conn:

@@ -5,6 +5,7 @@ from .chat import (
     ChatQueryResponse,
     CitationSchema,
     TokenUsageSchema,
+    ChatTableResult,
 )
 from .ingestion import (
     DocumentStatus,
@@ -25,6 +26,7 @@ __all__ = [
     "ChatQueryResponse",
     "CitationSchema",
     "TokenUsageSchema",
+    "ChatTableResult",
     "DocumentStatus",
     "IngestionRunSummary",
     "PaginatedDocuments",

@@ -50,6 +50,7 @@
 ### 3.6 Structured Data Service
 - **Function:** Catalogs table schemas, enforces SQL guardrails, executes parameterized queries, and links relational data into RAG context.
 - **Justification:** Supports tabular answers and hybrid document-table responses highlighted in the PRD.
+- **Current Implementation Notes:** Structured query API runs on Pandas/SQLite snapshots with a guard built on sqlglot enforcing SELECT-only, LIMIT caps, and allow-listed aggregates. Execution is fully logged to `structured_query_logs` for audit.
 - **Decisions Pending:** Choose ORM/query layer, confirm supported databases, and finalize policy engine for column/row masking.
 
 ### 3.7 Admin & Analytics Service

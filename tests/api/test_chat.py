@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import pytest
 
+from uuid import uuid4
+
 from backend.rag import get_rag_pipeline
 from backend.rag.llm_client import LLMTimeoutError
 from backend.rag.pipeline import Citation, RAGResult, TokenUsage
 from backend.retrieval.models import RetrievalFilters
+from backend.structured.query_service import ColumnMeta, QueryResult, TableRow
+from backend.app.routers import chat as chat_router
+from backend.db import SessionLocal
+from backend.db.models import Tenant
 
 
 class FakePipeline:
@@ -14,7 +20,13 @@ class FakePipeline:
         self._error = error
         self.calls: list[tuple[str, str, RetrievalFilters | None]] = []
 
-    async def generate_answer(self, query: str, tenant_id: str, filters: RetrievalFilters | None = None) -> RAGResult:
+    async def generate_answer(
+        self,
+        query: str,
+        tenant_id: str,
+        filters: RetrievalFilters | None = None,
+        structured_result: QueryResult | None = None,
+    ) -> RAGResult:
         self.calls.append((query, tenant_id, filters))
         if self._error:
             raise self._error
@@ -65,6 +77,7 @@ async def test_chat_query_returns_answer(app, async_client, test_settings):
     assert body["citations"][0]["document_id"] == "doc-1"
     assert body["token_usage"]["total_tokens"] == 20
     assert body["latency_ms"] == pytest.approx(result.latency_ms)
+    assert body["table"] is None
     assert fake_pipeline.calls[0][1] == test_settings.ingest_default_tenant
 
 
@@ -99,6 +112,7 @@ async def test_chat_query_returns_i_dont_know(app, async_client, test_settings):
     assert body["answer"] == "I don't know"
     assert body["citations"] == []
     assert body["token_usage"]["total_tokens"] == 0
+    assert body["table"] is None
 
 
 @pytest.mark.asyncio
@@ -131,3 +145,70 @@ async def test_chat_query_timeout_returns_504(app, async_client, test_settings):
 
     assert response.status_code == 504
     assert "timed out" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_chat_query_with_structured_result(app, async_client, test_settings):
+    table_result = QueryResult(
+        table_id=uuid4(),
+        table_name="employees",
+        columns=[ColumnMeta(name="id", data_type="integer"), ColumnMeta(name="name", data_type="string")],
+        rows=[TableRow(values={"id": 1, "name": "Alice"})],
+        row_count=1,
+        execution_ms=5.4,
+        log_id=uuid4(),
+    )
+    result = RAGResult(
+        answer="Employee list [Table:employees]",
+        model="stub-model",
+        prompt="prompt text",
+        prompt_id="prompt-789",
+        citations=[],
+        token_usage=TokenUsage(prompt_tokens=5, completion_tokens=7, total_tokens=12),
+        latency_ms=12.5,
+        table=table_result,
+    )
+    fake_pipeline = FakePipeline(result=result)
+
+    async def override_pipeline():
+        return fake_pipeline
+
+    class FakeQueryService:
+        def execute(self, query, tenant_id, table_name):
+            return table_result
+
+    def fake_builder(settings, session):
+        return FakeQueryService()
+
+    session = SessionLocal()
+    try:
+        tenant = session.query(Tenant).filter(Tenant.slug == test_settings.ingest_default_tenant).one_or_none()
+        if tenant is None:
+            tenant = Tenant(name="Default", slug=test_settings.ingest_default_tenant)
+            session.add(tenant)
+            session.commit()
+    finally:
+        session.close()
+
+    app.dependency_overrides[get_rag_pipeline] = override_pipeline
+    original_builder = chat_router.build_query_service
+    chat_router.build_query_service = fake_builder
+
+    response = await async_client.post(
+        "/chat/query",
+        json={
+            "query": "Show employee table",
+            "structured_query": "SELECT id, name FROM employees LIMIT 10",
+            "structured_table": "employees",
+        },
+        headers={"X-Chat-API-Key": test_settings.chat_api_key},
+    )
+
+    app.dependency_overrides.pop(get_rag_pipeline, None)
+    chat_router.build_query_service = original_builder
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["table"] is not None
+    assert body["table"]["row_count"] == 1
+    assert body["table"]["columns"][0]["name"] == "id"

@@ -10,6 +10,7 @@ from backend.rag.llm_client import LLMResult
 from backend.rag.pipeline import RAGPipeline
 from backend.rag.prompts import PromptBuilder
 from backend.retrieval.models import RetrievedChunk, RetrievalResponse
+from backend.structured.query_service import ColumnMeta, QueryResult, TableRow
 
 
 @dataclass
@@ -84,6 +85,7 @@ async def test_generate_answer_returns_citations() -> None:
     assert result.token_usage.prompt_tokens == 10
     assert result.token_usage.completion_tokens == 5
     assert result.token_usage.total_tokens == 15
+    assert result.table is None
     UUID(result.prompt_id)
 
 
@@ -115,6 +117,7 @@ async def test_generate_answer_no_context_returns_i_dont_know() -> None:
     assert result.token_usage.prompt_tokens == 0
     assert result.token_usage.completion_tokens == 0
     assert result.token_usage.total_tokens == 0
+    assert result.table is None
     assert not getattr(llm_client, "called", False)
 
 
@@ -146,3 +149,37 @@ async def test_generate_answer_blank_completion_falls_back() -> None:
     assert result.answer == "I don't know"
     assert result.citations
     assert llm_client.calls, "LLM client should be called even if it returns whitespace"
+
+
+@pytest.mark.asyncio
+async def test_generate_answer_with_structured_table() -> None:
+    chunks: list[RetrievedChunk] = []
+    retrieval_service = FakeRetrievalService(chunks)
+    llm_client = FakeLLMClient(text="Table response", model="stub")
+    settings = Settings(llm_model="stub")
+    pipeline = RAGPipeline(
+        retrieval_service=retrieval_service,
+        llm_client=llm_client,
+        prompt_builder=PromptBuilder(),
+        settings=settings,
+    )
+
+    table_result = QueryResult(
+        table_id=UUID("00000000-0000-0000-0000-000000000001"),
+        table_name="employees",
+        columns=[ColumnMeta(name="id", data_type="integer"), ColumnMeta(name="name", data_type="string")],
+        rows=[TableRow(values={"id": 1, "name": "Alice"})],
+        row_count=1,
+        execution_ms=4.2,
+        log_id=UUID("00000000-0000-0000-0000-000000000002"),
+    )
+
+    result = await pipeline.generate_answer(
+        "Show employee table",
+        "tenant-1",
+        structured_result=table_result,
+    )
+
+    assert result.table is table_result
+    assert any(c.document_id.startswith("Table:") for c in result.citations)
+    assert "[Table] employees" in result.prompt

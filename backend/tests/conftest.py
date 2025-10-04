@@ -102,6 +102,8 @@ def settings_override(database_url: str) -> Settings:
         chat_max_tokens=256,
         structured_max_rows=1000,
         structured_sample_size=3,
+        sql_query_timeout_seconds=1.5,
+        sql_allowed_functions=["count", "sum"],
         local_ingest_root=Path(PROJECT_ROOT / "tests" / "fixtures" / "docs"),
         chunk_size=200,
         chunk_overlap=20,

@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     chat_max_tokens: int = 600
     structured_max_rows: int = 50000
     structured_sample_size: int = 5
+    sql_query_timeout_seconds: float = 5.0
+    sql_allowed_functions: list[str] = ["count", "sum", "avg", "min", "max"]
     vector_dim: int = 1536
     vector_timeout_seconds: float = 10.0
     embedding_fallback_models: list[str] = []
@@ -79,6 +81,17 @@ class Settings(BaseSettings):
             return [str(item).strip() for item in value if str(item).strip()]
         raise ValueError("Invalid fallback model list")
 
+    @field_validator("sql_allowed_functions", mode="before")
+    @classmethod
+    def _parse_allowed_functions(cls, value: Any) -> list[str]:
+        if value is None or value == "":
+            return []
+        if isinstance(value, str):
+            return [item.strip().lower() for item in value.split(",") if item.strip()]
+        if isinstance(value, (list, tuple, set)):
+            return [str(item).strip().lower() for item in value if str(item).strip()]
+        raise ValueError("Invalid SQL allowed function list")
+
     @dataclass(slots=True)
     class IngestionConfig:
         local_root: Path
@@ -107,6 +120,17 @@ class Settings(BaseSettings):
             default_tenant=self.ingest_default_tenant,
             max_rows=self.structured_max_rows,
             sample_size=self.structured_sample_size,
+        )
+
+    @dataclass(slots=True)
+    class SQLGuardConfig:
+        timeout_seconds: float
+        allowed_functions: list[str]
+
+    def sql_guard_config(self) -> "Settings.SQLGuardConfig":
+        return self.SQLGuardConfig(
+            timeout_seconds=self.sql_query_timeout_seconds,
+            allowed_functions=list({func.lower() for func in self.sql_allowed_functions}),
         )
 
 

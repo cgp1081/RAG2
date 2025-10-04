@@ -55,6 +55,11 @@ class Tenant(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    structured_query_logs: Mapped[list["StructuredQueryLog"]] = relationship(
+        back_populates="tenant",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
 
 class Source(Base):
@@ -329,6 +334,11 @@ class StructuredTable(Base):
         lazy="selectin",
         order_by="StructuredRow.row_index",
     )
+    query_logs: Mapped[list["StructuredQueryLog"]] = relationship(
+        back_populates="table",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
 
 class StructuredColumn(Base):
@@ -397,6 +407,43 @@ class StructuredRow(Base):
     table: Mapped[StructuredTable] = relationship(back_populates="rows", lazy="selectin")
 
 
+class StructuredQueryLog(Base):
+    __tablename__ = "structured_query_logs"
+    __table_args__ = (
+        sa.Index("ix_structured_query_logs_tenant_created", "tenant_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=_UUID_SERVER_DEFAULT,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        sa.ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    table_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        sa.ForeignKey("structured_tables.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    executed_sql: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    parameters: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    status: Mapped[str] = mapped_column(sa.String(32), nullable=False)
+    reason: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    row_count: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+    duration_ms: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=sa.func.now(),
+    )
+
+    tenant: Mapped[Tenant] = relationship(back_populates="structured_query_logs", lazy="selectin")
+    table: Mapped[StructuredTable | None] = relationship(back_populates="query_logs", lazy="selectin")
+
+
 class IngestionEventType:
     """Canonical ingestion event types."""
 
@@ -421,4 +468,5 @@ __all__ = [
     "StructuredTable",
     "StructuredColumn",
     "StructuredRow",
+    "StructuredQueryLog",
 ]

@@ -5,6 +5,8 @@ from time import perf_counter
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from backend.app.config import Settings, settings_dependency
 from backend.app.logging import get_logger
@@ -12,13 +14,18 @@ from backend.app.schemas.chat import (
     ChatMetadataFilters,
     ChatQueryRequest,
     ChatQueryResponse,
+    ChatTableResult,
     CitationSchema,
     TokenUsageSchema,
 )
+from backend.app.schemas.structured import StructuredColumnSchema
+from backend.db.models import Tenant
+from backend.db.session import get_db_session
 from backend.rag import get_rag_pipeline
 from backend.rag.llm_client import LLMClientError, LLMTimeoutError
 from backend.rag.pipeline import RAGPipeline
 from backend.retrieval.models import RetrievalFilters
+from backend.structured.query_service import GuardViolation, QueryResult, build_query_service
 
 _logger = get_logger(__name__)
 _AUTH_HEADER = {"WWW-Authenticate": "API-Key"}
@@ -68,12 +75,37 @@ async def chat_query(
     request: ChatQueryRequest,
     pipeline: RAGPipeline = Depends(get_rag_pipeline),
     settings: Settings = Depends(settings_dependency),
+    session: Session = Depends(get_db_session),
 ) -> ChatQueryResponse:
     tenant_id = request.tenant_id or settings.ingest_default_tenant
     if not tenant_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="tenant_id is required")
 
     filters = _convert_filters(request.filters)
+    structured_result: QueryResult | None = None
+
+    if request.structured_query:
+        if not request.structured_table:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="structured_table is required when structured_query is provided",
+            )
+        tenant_row = session.execute(
+            select(Tenant).where(Tenant.slug == tenant_id)
+        ).scalar_one_or_none()
+        if tenant_row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found")
+        query_service = build_query_service(settings, session)
+        try:
+            structured_result = query_service.execute(
+                query=request.structured_query,
+                tenant_id=tenant_row.id,
+                table_name=request.structured_table,
+            )
+        except GuardViolation as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        except Exception as exc:  # pragma: no cover - defensive
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Structured query failed") from exc
 
     start = perf_counter()
     try:
@@ -81,6 +113,7 @@ async def chat_query(
             query=request.query,
             tenant_id=tenant_id,
             filters=filters,
+            structured_result=structured_result,
         )
     except LLMTimeoutError as exc:
         raise HTTPException(
@@ -104,6 +137,7 @@ async def chat_query(
         model=result.model,
         prompt_id=result.prompt_id,
         latency_ms=result.latency_ms,
+        table=_to_table_payload(result.table) if result.table else None,
     )
 
     _logger.info(
@@ -118,6 +152,18 @@ async def chat_query(
     # TODO: add request rate limiting and abuse protections.
 
     return response
+
+
+def _to_table_payload(result: QueryResult | None) -> ChatTableResult | None:
+    if result is None:
+        return None
+    return ChatTableResult(
+        table_name=result.table_name,
+        columns=[StructuredColumnSchema(name=col.name, data_type=col.data_type) for col in result.columns],
+        rows=[row.values for row in result.rows],
+        row_count=result.row_count,
+        execution_ms=result.execution_ms,
+    )
 
 
 __all__ = ["router", "require_chat_api_key"]

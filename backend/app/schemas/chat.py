@@ -1,9 +1,11 @@
 """Pydantic schemas for chat endpoints."""
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, constr
+
+from backend.app.schemas.structured import StructuredColumnSchema
 
 
 class ChatMetadataFilters(BaseModel):
@@ -20,6 +22,9 @@ class ChatQueryRequest(BaseModel):
     query: constr(min_length=1)
     tenant_id: Optional[str] = None
     filters: Optional[ChatMetadataFilters] = None
+    structured_query: Optional[str] = None
+    structured_table: Optional[str] = None
+    allow_structured: bool = False
 
 
 class CitationSchema(BaseModel):
@@ -46,6 +51,16 @@ class TokenUsageSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ChatTableResult(BaseModel):
+    table_name: str
+    columns: List[StructuredColumnSchema]
+    rows: List[Dict[str, Any]]
+    row_count: int
+    execution_ms: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ChatQueryResponse(BaseModel):
     """Payload returned from the chat query endpoint."""
 
@@ -55,6 +70,7 @@ class ChatQueryResponse(BaseModel):
     model: str
     prompt_id: str
     latency_ms: float
+    table: Optional[ChatTableResult] = None
 
     model_config = ConfigDict(from_attributes=True)
 

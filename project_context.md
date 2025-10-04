@@ -124,6 +124,13 @@
 - Expanded CLI with `rag ingest-table` to ingest CSVs per tenant, supporting overrides for row cap/sample size.
 - Added regression coverage for migrations and structured ingestion (`tests/structured/test_ingest.py`), including failure paths.
 
+### 2025-09-24 — P2-S4: Structured SQL Guard & Hybrid RAG
+- Added `sqlglot` dependency and SQL guard configuration (`SQL_QUERY_TIMEOUT`, `SQL_ALLOWED_FUNCTIONS`) surfaced across environments.
+- Created query logs schema with ORM models linking tenants/tables for auditability (`structured_query_logs`).
+- Implemented guard-validated structured query service, admin API endpoint, and CLI dry-run for SQL (with comprehensive logging and error handling).
+- Upgraded RAG pipeline to blend structured results into prompts/citations, enabling hybrid chat responses and table payloads.
+- Extended chat API & schemas for optional SQL execution, plus new unit/API coverage (`tests/structured/test_query_service.py`, `tests/api/test_structured_query.py`, hybrid chat test).
+
 ## Deviations & Notes
 - Test fixtures reuse the configured Postgres instance instead of creating per-test databases (original brief suggested ephemeral DBs). Document this if multi-tenant isolation becomes critical.
 - `documents.metadata` column stored under attribute `metadata_json` to avoid SQLAlchemy reserved-name conflict; accessor convenience not yet added.

@@ -29,6 +29,14 @@ Cite sources using bracket notation that references the context numbers (e.g., [
 If the context does not contain the answer, reply exactly with "I don't know".
 
 Context:
+{% if table %}
+[Table] {{ table.table_name }}
+Columns: {{ table.columns|join(", ") }}
+Sample Rows:
+{% for row in table.rows %}- {{ row }}
+{% endfor %}
+
+{% endif %}
 {% if chunks %}
 {% for chunk in chunks -%}
 [{{ loop.index }}] Title: {{ chunk.title }} | Source: {{ chunk.source_type }}
@@ -64,6 +72,13 @@ class PromptChunk:
     snippet: str
 
 
+@dataclass(slots=True)
+class PromptTable:
+    table_name: str
+    columns: list[str]
+    sample_rows: list[str]
+
+
 class PromptBuilder:
     """Render deterministic prompts for the RAG pipeline."""
 
@@ -72,7 +87,12 @@ class PromptBuilder:
     def __init__(self, template: Template | None = None) -> None:
         self.template = template or _PROMPT_TEMPLATE
 
-    def build_prompt(self, question: str, chunks: Sequence[PromptChunk]) -> str:
+    def build_prompt(
+        self,
+        question: str,
+        chunks: Sequence[PromptChunk],
+        table: PromptTable | None = None,
+    ) -> str:
         """Render the prompt for the supplied question and context chunks."""
 
         rendered_chunks: list[dict[str, str]] = []
@@ -88,7 +108,20 @@ class PromptBuilder:
                     "snippet": truncate_snippet(chunk.snippet, MAX_SNIPPET_LENGTH),
                 }
             )
-        return self.template.render(question=question, chunks=rendered_chunks)
+        rendered_table = None
+        if table is not None:
+            rendered_table = {
+                "table_name": table.table_name,
+                "columns": table.columns,
+                "rows": table.sample_rows,
+            }
+        return self.template.render(question=question, chunks=rendered_chunks, table=rendered_table)
 
 
-__all__ = ["PromptBuilder", "PromptChunk", "truncate_snippet", "MAX_SNIPPET_LENGTH"]
+__all__ = [
+    "PromptBuilder",
+    "PromptChunk",
+    "PromptTable",
+    "truncate_snippet",
+    "MAX_SNIPPET_LENGTH",
+]

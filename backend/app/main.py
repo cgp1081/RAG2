@@ -12,7 +12,7 @@ from backend.db.session import init_engine
 
 from .config import get_settings
 from .logging import RequestLoggingMiddleware, configure_logging, get_logger
-from .routers import chat_router, health_router, retrieval_router
+from .routers import chat_router, health_router, retrieval_router, structured_router
 from .routers.ingestion import router as admin_router
 
 
@@ -28,6 +28,7 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestLoggingMiddleware)
     app.include_router(health_router, prefix="")
     app.include_router(admin_router)
+    app.include_router(structured_router)
     app.include_router(chat_router)
     app.include_router(retrieval_router)
 
