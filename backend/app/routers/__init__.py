@@ -6,6 +6,7 @@ from .chat import router as chat_router, require_chat_api_key
 from .ingestion import router as ingestion_router, require_admin_api_key
 from .structured import router as structured_router
 from .retrieval import router as retrieval_router
+from .metrics import router as metrics_router
 
 health_router = APIRouter()
 
@@ -23,6 +24,7 @@ __all__ = [
     "retrieval_router",
     "chat_router",
     "structured_router",
+    "metrics_router",
     "require_admin_api_key",
     "require_chat_api_key",
 ]

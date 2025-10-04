@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     retrieval_score_floor: float = 0.35
     retrieval_score_ceiling: float = 0.95
     retrieval_diagnostics: bool = False
+    observability_enabled: bool = True
+    prometheus_enabled: bool = True
+    prometheus_port: int = 9100
+    otel_enabled: bool = False
+    otel_exporter_otlp_endpoint: AnyHttpUrl | None = None
+    trace_sample_rate: float = 0.1
 
     model_config = SettingsConfigDict(env_prefix="", extra="ignore", case_sensitive=False)
 
@@ -131,6 +137,25 @@ class Settings(BaseSettings):
         return self.SQLGuardConfig(
             timeout_seconds=self.sql_query_timeout_seconds,
             allowed_functions=list({func.lower() for func in self.sql_allowed_functions}),
+        )
+
+    @dataclass(slots=True)
+    class ObservabilityConfig:
+        observability_enabled: bool
+        prometheus_enabled: bool
+        prometheus_port: int
+        otel_enabled: bool
+        otel_exporter_otlp_endpoint: AnyHttpUrl | None
+        trace_sample_rate: float
+
+    def observability_config(self) -> "Settings.ObservabilityConfig":
+        return self.ObservabilityConfig(
+            observability_enabled=self.observability_enabled,
+            prometheus_enabled=self.prometheus_enabled,
+            prometheus_port=self.prometheus_port,
+            otel_enabled=self.otel_enabled,
+            otel_exporter_otlp_endpoint=self.otel_exporter_otlp_endpoint,
+            trace_sample_rate=self.trace_sample_rate,
         )
 
 

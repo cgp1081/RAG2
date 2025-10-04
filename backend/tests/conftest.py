@@ -109,6 +109,12 @@ def settings_override(database_url: str) -> Settings:
         chunk_overlap=20,
         ingest_default_tenant="default",
         admin_api_key="test-admin-key",
+        observability_enabled=True,
+        prometheus_enabled=True,
+        prometheus_port=8000,
+        otel_enabled=False,
+        otel_exporter_otlp_endpoint=None,
+        trace_sample_rate=0.1,
     )
 
 

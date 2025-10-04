@@ -55,6 +55,7 @@
 - `tests/rag/test_pipeline.py`: Async RAG pipeline coverage with retrieval/LLM fakes.
 - `tests/structured/test_ingest.py`: Structured ingestion coverage including schema inference and failure handling.
 - `alembic.ini`: Root Alembic configuration with `path_separator = os` to avoid prepend warning.
+- Observability baseline assets: `backend/app/observability.py`, `backend/app/middleware/tracing.py`, `/metrics` router, `ops/prometheus/prometheus.yml`, and pytest coverage for metrics/tracing.
 
 ## Next Immediate Steps
 - Reference `project_sequence.txt` to select the next unblocked task (likely remaining Phase 2 decision work before voice/telephony).
@@ -131,6 +132,12 @@
 - Implemented guard-validated structured query service, admin API endpoint, and CLI dry-run for SQL (with comprehensive logging and error handling).
 - Upgraded RAG pipeline to blend structured results into prompts/citations, enabling hybrid chat responses and table payloads.
 - Extended chat API & schemas for optional SQL execution, plus new unit/API coverage (`tests/structured/test_query_service.py`, `tests/api/test_structured_query.py`, hybrid chat test).
+
+### 2025-10-05 — P6-S1: Observability Baseline
+- Added Prometheus collector registry, `/metrics` endpoint, HTTP/ingestion/RAG timers, and structlog-backed tracing context.
+- Introduced tracing middleware plus OpenTelemetry configuration hooks; tracing activates with `OTEL_ENABLED=true` and honours `TRACE_SAMPLE_RATE`.
+- Provisioned optional Prometheus/Loki/Grafana services via `docker compose --profile observability up -d`; `.env.example` documents new observability toggles.
+- Added pytest coverage for metrics endpoint, tracing middleware, and tracing configuration stubs to prevent regressions.
 
 ## Deviations & Notes
 - Test fixtures reuse the configured Postgres instance instead of creating per-test databases (original brief suggested ephemeral DBs). Document this if multi-tenant isolation becomes critical.

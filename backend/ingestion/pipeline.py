@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from time import perf_counter
 from typing import Optional
 
 try:  # pragma: no cover - optional dependency handled at runtime
@@ -15,6 +16,7 @@ from pypdf import PdfReader
 from sqlalchemy.orm import Session
 
 from backend.app.config import Settings
+from backend.app.observability import record_ingestion_duration
 from backend.app.logging import get_logger
 from backend.db.models import (
     Document,
@@ -91,6 +93,8 @@ class IngestionPipeline:
         run.total_documents = len(files)
         self.session.commit()
 
+        started = perf_counter()
+
         try:
             for file_path in files:
                 try:
@@ -152,6 +156,13 @@ class IngestionPipeline:
             self._record_event(run, IngestionEventType.RUN_FAILED, {})
             self.session.commit()
             raise
+        finally:
+            duration_seconds = perf_counter() - started
+            record_ingestion_duration(
+                tenant_id=tenant_id,
+                status=run.status,
+                duration_seconds=duration_seconds,
+            )
 
     def _validate_path(self, target: Path) -> None:
         root = self.config.local_root

@@ -11,9 +11,12 @@ from fastapi import FastAPI
 from backend.db.session import init_engine
 
 from .config import get_settings
+from .middleware import TracingMiddleware
 from .logging import RequestLoggingMiddleware, configure_logging, get_logger
+from .observability import configure_tracing, init_metrics
 from .routers import chat_router, health_router, retrieval_router, structured_router
 from .routers.ingestion import router as admin_router
+from .routers.metrics import router as metrics_router
 
 
 def create_app() -> FastAPI:
@@ -25,6 +28,7 @@ def create_app() -> FastAPI:
     logger = get_logger(__name__)
 
     app = FastAPI(title="RAG Platform API", version=settings.app_version)
+    app.add_middleware(TracingMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
     app.include_router(health_router, prefix="")
     app.include_router(admin_router)
@@ -32,8 +36,15 @@ def create_app() -> FastAPI:
     app.include_router(chat_router)
     app.include_router(retrieval_router)
 
+    observability = settings.observability_config()
+    registry = init_metrics(settings)
+    if registry is not None and observability.prometheus_enabled:
+        app.include_router(metrics_router)
+
     if settings.admin_api_key is None:
         logger.warning("admin.api.disabled", reason="missing API key")
+
+    configure_tracing(settings, app)
 
     return app
 

@@ -15,6 +15,8 @@ from starlette.responses import Response
 from starlette.types import ASGIApp
 from structlog.stdlib import add_log_level, add_logger_name
 
+from backend.app.observability import HTTPRequestObservation, record_http_request
+
 _REQUEST_ID_CONTEXT: ContextVar[str | None] = ContextVar("request_id", default=None)
 _LOGGING_CONFIGURED = False
 
@@ -68,6 +70,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         token = _REQUEST_ID_CONTEXT.set(request_id)
         structlog.contextvars.bind_contextvars(request_id=request_id)
         request.state.request_id = request_id
+        trace_id = getattr(request.state, "trace_id", None)
+        tenant_id = getattr(request.state, "tenant_id", None)
         start_time = time.monotonic()
 
         try:
@@ -81,6 +85,17 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 path=request.url.path,
                 status_code=500,
                 duration_ms=duration_ms,
+                trace_id=trace_id,
+                tenant_id=tenant_id,
+            )
+            record_http_request(
+                HTTPRequestObservation(
+                    method=request.method,
+                    path=request.url.path,
+                    status_code=500,
+                    duration_seconds=duration_ms / 1000,
+                    tenant_id=tenant_id,
+                )
             )
             raise
         else:
@@ -92,11 +107,22 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 "path": request.url.path,
                 "status_code": response.status_code,
                 "duration_ms": duration_ms,
+                "trace_id": trace_id,
+                "tenant_id": tenant_id,
             }
             if response.status_code >= 500:
                 self._logger.error("request", **log_kwargs)
             else:
                 self._logger.info("request", **log_kwargs)
+            record_http_request(
+                HTTPRequestObservation(
+                    method=request.method,
+                    path=request.url.path,
+                    status_code=response.status_code,
+                    duration_seconds=duration_ms / 1000,
+                    tenant_id=tenant_id,
+                )
+            )
             return response
         finally:
             structlog.contextvars.unbind_contextvars("request_id")

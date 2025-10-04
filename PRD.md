@@ -280,6 +280,7 @@ llm_config:
   - Embedding model drift
   - Chunk count per doc
   - Ingestion failures
+ - Backend exposes `/metrics` when `PROMETHEUS_ENABLED` is true; start the optional monitoring stack with `docker compose --profile observability up -d` to collect metrics/logs locally.
 
 ### Performance Testing
 - Use Locust or k6 for concurrent chat testing

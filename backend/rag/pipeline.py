@@ -9,6 +9,7 @@ from uuid import uuid4
 from structlog.stdlib import BoundLogger
 
 from backend.app.config import Settings
+from backend.app.observability import record_rag_duration
 from backend.app.logging import get_logger
 from backend.rag.llm_client import LLMClient
 from backend.rag.prompts import (
@@ -147,6 +148,11 @@ class RAGPipeline:
         if not prompt_chunks and structured_result is None:
             latency_ms = (perf_counter() - start) * 1000
             usage = TokenUsage(prompt_tokens=0, completion_tokens=0, total_tokens=0)
+            record_rag_duration(
+                tenant_id=tenant_id,
+                outcome="no_context",
+                duration_seconds=latency_ms / 1000,
+            )
             self._logger.info(
                 "rag.pipeline.no_context",
                 tenant_id=tenant_id,
@@ -183,6 +189,11 @@ class RAGPipeline:
         )
 
         latency_ms = (perf_counter() - start) * 1000
+        record_rag_duration(
+            tenant_id=tenant_id,
+            outcome="success",
+            duration_seconds=latency_ms / 1000,
+        )
         self._logger.info(
             "rag.pipeline.completed",
             tenant_id=tenant_id,

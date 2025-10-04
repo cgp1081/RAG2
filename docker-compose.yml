@@ -41,6 +41,12 @@ services:
       RETRIEVAL_SCORE_FLOOR: ${RETRIEVAL_SCORE_FLOOR:-0.35}
       RETRIEVAL_SCORE_CEILING: ${RETRIEVAL_SCORE_CEILING:-0.95}
       RETRIEVAL_DIAGNOSTICS: ${RETRIEVAL_DIAGNOSTICS:-false}
+      OBSERVABILITY_ENABLED: ${OBSERVABILITY_ENABLED:-true}
+      PROMETHEUS_ENABLED: ${PROMETHEUS_ENABLED:-true}
+      PROMETHEUS_PORT: ${PROMETHEUS_PORT:-8000}
+      OTEL_ENABLED: ${OTEL_ENABLED:-false}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      TRACE_SAMPLE_RATE: ${TRACE_SAMPLE_RATE:-0.1}
     volumes:
       - ./backend:/app/backend
     ports:
@@ -65,6 +71,42 @@ services:
     image: qdrant/qdrant:v1.7.3
     ports:
       - "6333:6333"
+
+  prometheus:
+    image: prom/prometheus:latest
+    profiles: ["observability"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - api
+
+  loki:
+    image: grafana/loki:2.9.0
+    profiles: ["observability"]
+    command:
+      - -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./ops/loki/local-config.yaml:/etc/loki/local-config.yaml:ro
+    ports:
+      - "3100:3100"
+
+  grafana:
+    image: grafana/grafana:latest
+    profiles: ["observability"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: admin
+    volumes:
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
 
 volumes:
   postgres_data:

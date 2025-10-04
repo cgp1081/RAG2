@@ -79,6 +79,7 @@
 - **Function:** Collect logs, metrics, and traces across ingestion, retrieval, telephony, and LLM calls.
 - **Justification:** Supports SLA targets (latency, success rates) and debugging complex voice flows.
 - **Decisions Pending:** Confirm tooling (Prometheus/Grafana/Loki vs OpenTelemetry SaaS) and data retention windows.
+- **Implementation Notes:** FastAPI exposes a `/metrics` endpoint when `PROMETHEUS_ENABLED` is true; OpenTelemetry tracing activates with `OTEL_ENABLED`. Local Prometheus/Loki/Grafana services ship via the `observability` docker-compose profile (`docker compose --profile observability up -d`).
 
 ## 5. External Sources & Integrations
 

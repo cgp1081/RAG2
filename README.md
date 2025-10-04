@@ -172,6 +172,7 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
 - **Configuration:** Set `ADMIN_API_KEY` wherever the backend runs to enable the operator endpoints; use distinct values per environment and rotate via your secrets manager.
   - Retrieval-specific environment knobs (`RETRIEVAL_TOP_K_DEFAULT`, `RETRIEVAL_SCORE_FLOOR`, `RETRIEVAL_SCORE_CEILING`, `RETRIEVAL_DIAGNOSTICS`) tune ranking behaviour and logging verbosity.
   - Structured ingestion/query guard knobs (`STRUCTURED_MAX_ROWS`, `STRUCTURED_SAMPLE_SIZE`, `SQL_QUERY_TIMEOUT`, `SQL_ALLOWED_FUNCTIONS`) keep table ingestion bounded and SQL access safe.
+  - Observability toggles: `OBSERVABILITY_ENABLED`, `PROMETHEUS_ENABLED`, `OTEL_ENABLED`, and `TRACE_SAMPLE_RATE` gate metrics/tracing. When metrics are enabled, `/metrics` exposes Prometheus data; launch the optional Prometheus/Loki/Grafana stack with `docker compose --profile observability up -d`.
 
 ---
 
