@@ -20,6 +20,7 @@ from backend.retrieval.service import RetrievalService
 from backend.services import build_embedding_service, build_vector_store
 from backend.voice import build_stt_adapter, build_tts_adapter
 from backend.voice.call_handler import CallSessionManager, VoiceCallHandler
+from backend.voice.storage import build_call_storage_adapter
 
 logger = get_logger(__name__)
 
@@ -68,6 +69,7 @@ async def _simulate_voice_call(
                     rag_pipeline=pipeline,
                     stt_adapter=stt_adapter,
                     tts_adapter=tts_adapter,
+                    storage_adapter=build_call_storage_adapter(settings),
                     settings=settings,
                 )
 

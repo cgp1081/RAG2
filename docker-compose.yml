@@ -56,6 +56,10 @@ services:
       VOICE_CONFIDENCE_THRESHOLD: ${VOICE_CONFIDENCE_THRESHOLD:-0.6}
       VOICE_RECORDINGS_PATH: ${VOICE_RECORDINGS_PATH:-/app/data/recordings}
       VOICE_STREAM_TIMEOUT_SECONDS: ${VOICE_STREAM_TIMEOUT_SECONDS:-25.0}
+      CALL_STORAGE_BUCKET: ${CALL_STORAGE_BUCKET:-rag-voice-recordings}
+      CALL_STORAGE_REGION: ${CALL_STORAGE_REGION:-us-west-2}
+      CALL_STORAGE_ENDPOINT: ${CALL_STORAGE_ENDPOINT:-}
+      CALL_SUMMARY_CRON: ${CALL_SUMMARY_CRON:-"0 2 * * *"}
     volumes:
       - ./backend:/app/backend
       - ./data/recordings:${VOICE_RECORDINGS_PATH:-/app/data/recordings}

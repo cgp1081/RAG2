@@ -124,6 +124,10 @@ def settings_override(database_url: str) -> Settings:
         voice_confidence_threshold=0.6,
         voice_recordings_path=Path(PROJECT_ROOT / "data" / "recordings"),
         voice_stream_timeout_seconds=25.0,
+        call_storage_bucket="rag-voice-recordings",
+        call_storage_region="us-west-2",
+        call_storage_endpoint=None,
+        call_summary_cron="0 2 * * *",
     )
 
 

@@ -34,6 +34,7 @@ dependencies = [
     "twilio",
     "deepgram-sdk",
     "aiofiles",
+    "boto3",
 ]
 
 [project.optional-dependencies]

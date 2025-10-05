@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     voice_confidence_threshold: float = 0.6
     voice_recordings_path: Path | str = Path("data/recordings")
     voice_stream_timeout_seconds: float = 25.0
+    call_storage_bucket: str | None = None
+    call_storage_region: str | None = None
+    call_storage_endpoint: AnyHttpUrl | None = None
+    call_summary_cron: str = "0 2 * * *"
 
     model_config = SettingsConfigDict(env_prefix="", extra="ignore", case_sensitive=False)
 
@@ -199,6 +203,19 @@ class Settings(BaseSettings):
             confidence_threshold=float(self.voice_confidence_threshold),
             recordings_path=Path(self.voice_recordings_path).resolve(),
             stream_timeout_seconds=float(self.voice_stream_timeout_seconds),
+        )
+
+    @dataclass(slots=True)
+    class CallStorageConfig:
+        bucket: str | None
+        region: str | None
+        endpoint: AnyHttpUrl | None
+
+    def call_storage_config(self) -> "Settings.CallStorageConfig":
+        return self.CallStorageConfig(
+            bucket=self.call_storage_bucket,
+            region=self.call_storage_region,
+            endpoint=self.call_storage_endpoint,
         )
 
 

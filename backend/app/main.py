@@ -18,6 +18,7 @@ from .routers import chat_router, health_router, retrieval_router, structured_ro
 from .routers.voice import router as voice_router
 from .routers.ingestion import router as admin_router
 from .routers.metrics import router as metrics_router
+from .routers.calls import router as calls_router
 
 
 def create_app() -> FastAPI:
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestLoggingMiddleware)
     app.include_router(health_router, prefix="")
     app.include_router(admin_router)
+    app.include_router(calls_router)
     app.include_router(structured_router)
     app.include_router(chat_router)
     app.include_router(retrieval_router)

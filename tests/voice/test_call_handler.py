@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from pathlib import Path
 from typing import AsyncIterator
 
 import pytest
 
 from backend.app.config import Settings
-from backend.db.models import CallTurn, Tenant
+from backend.db.models import CallSession, CallTurn, Tenant
 from backend.db.session import SessionLocal
 from backend.rag.pipeline import RAGResult, TokenUsage
 from backend.voice.call_handler import AssistantTurn, CallSessionManager, VoiceCallHandler
@@ -54,6 +55,18 @@ class StubTTS:
         return text.encode("utf-8")
 
 
+class StubStorage:
+    def __init__(self) -> None:
+        self.uploaded: list[Path] = []
+
+    def upload(self, session, file_path: Path) -> str:
+        self.uploaded.append(file_path)
+        return "stored-object"
+
+    def presign(self, object_key: str, *, expires_seconds: int = 3600) -> str:
+        return f"https://storage.example/{object_key}"
+
+
 async def _empty_audio_stream() -> AsyncIterator[bytes]:
     if False:
         yield b""
@@ -77,11 +90,13 @@ def base_handler(test_settings: Settings, session_manager: CallSessionManager) -
     pipeline = StubPipeline()
     stt = StubSTT([])
     tts = StubTTS()
+    storage = StubStorage()
     return VoiceCallHandler(
         session_manager=session_manager,
         rag_pipeline=pipeline,
         stt_adapter=stt,
         tts_adapter=tts,
+        storage_adapter=storage,
         settings=test_settings,
     )
 
@@ -94,11 +109,13 @@ def test_inbound_call_creates_session_and_returns_twiml(
     pipeline = StubPipeline()
     stt = StubSTT([])
     tts = StubTTS()
+    storage = StubStorage()
     handler = VoiceCallHandler(
         session_manager=session_manager,
         rag_pipeline=pipeline,
         stt_adapter=stt,
         tts_adapter=tts,
+        storage_adapter=storage,
         settings=test_settings,
     )
     xml, session_uuid = handler.handle_inbound_call(
@@ -119,6 +136,7 @@ async def test_process_stream_appends_turns_and_calls_pipeline(
     test_settings: Settings,
     session_manager: CallSessionManager,
     tenant_id: uuid.UUID,
+    tmp_path: Path,
 ):
     pipeline = StubPipeline(answer="Here is the answer")
     stt_segments = [
@@ -126,11 +144,14 @@ async def test_process_stream_appends_turns_and_calls_pipeline(
     ]
     stt = StubSTT(stt_segments)
     tts = StubTTS()
+    storage = StubStorage()
+    test_settings.voice_recordings_path = str(tmp_path)
     handler = VoiceCallHandler(
         session_manager=session_manager,
         rag_pipeline=pipeline,
         stt_adapter=stt,
         tts_adapter=tts,
+        storage_adapter=storage,
         settings=test_settings,
     )
     session = session_manager.start_session(
@@ -139,6 +160,8 @@ async def test_process_stream_appends_turns_and_calls_pipeline(
         caller_number="+15550001111",
         callee_number="+15550009999",
     )
+    recording_file = tmp_path / f"{session.id}.wav"
+    recording_file.write_bytes(b"fake audio")
 
     async def stream() -> AsyncIterator[bytes]:
         yield b"audio"
@@ -154,6 +177,14 @@ async def test_process_stream_appends_turns_and_calls_pipeline(
         stored_turns = db.query(CallTurn).filter(CallTurn.session_id == session.id).all()
         speakers = {turn.speaker for turn in stored_turns}
         assert speakers == {"caller", "assistant"}
+        refreshed_session = db.get(CallSession, session.id)
+        assert refreshed_session is not None
+        assert refreshed_session.summary is not None
+        assert refreshed_session.storage_object_key == "stored-object"
+        assert refreshed_session.recording_url.startswith("https://")
+        assert not refreshed_session.escalated
+        assert refreshed_session.avg_turn_latency_ms is not None
+    assert storage.uploaded
 
 
 @pytest.mark.asyncio
@@ -161,6 +192,7 @@ async def test_low_confidence_prompts_retry(
     test_settings: Settings,
     session_manager: CallSessionManager,
     tenant_id: uuid.UUID,
+    tmp_path: Path,
 ):
     test_settings.voice_confidence_threshold = 0.8
     pipeline = StubPipeline(answer="Should not be called")
@@ -169,11 +201,14 @@ async def test_low_confidence_prompts_retry(
     ]
     stt = StubSTT(stt_segments)
     tts = StubTTS()
+    storage = StubStorage()
+    test_settings.voice_recordings_path = str(tmp_path)
     handler = VoiceCallHandler(
         session_manager=session_manager,
         rag_pipeline=pipeline,
         stt_adapter=stt,
         tts_adapter=tts,
+        storage_adapter=storage,
         settings=test_settings,
     )
     session = session_manager.start_session(
@@ -194,3 +229,7 @@ async def test_low_confidence_prompts_retry(
     )
     assert pipeline.calls == []
     assert any(turn.text.startswith("I'm sorry") for turn in turns)
+    with SessionLocal() as db:
+        refreshed_session = db.get(CallSession, session.id)
+        assert refreshed_session is not None
+        assert refreshed_session.escalated is True

@@ -142,6 +142,8 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
   - `rag dry-run-sql --tenant <slug> --table <name> --query "SELECT ..."` to preview guarded structured queries and review results/logs locally.
   - `rag eval --dataset backend/eval/datasets/example.yaml --tenant <id>` to benchmark retrieval precision/recall against curated golden datasets; reports land in `reports/` by default.
   - `rag voice-simulate --audio <file.wav> --tenant <uuid>` to replay local audio through the voice pipeline using stub adapters for STT/TTS.
+  - `rag voice-call-summary --from 2024-01-01 --to 2024-01-31` to recompute daily call metrics (until cron wiring is in place).
+  - `rag export-calls --from 2024-01-01 --to 2024-01-31 --tenant <uuid> --output reports/calls.csv` to export call transcripts and metadata for review.
 
 - **API Endpoints:**
   - REST endpoints for chat, ingest, and metadata management.
@@ -177,6 +179,7 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
   - Structured ingestion/query guard knobs (`STRUCTURED_MAX_ROWS`, `STRUCTURED_SAMPLE_SIZE`, `SQL_QUERY_TIMEOUT`, `SQL_ALLOWED_FUNCTIONS`) keep table ingestion bounded and SQL access safe.
   - Observability toggles: `OBSERVABILITY_ENABLED`, `PROMETHEUS_ENABLED`, `OTEL_ENABLED`, and `TRACE_SAMPLE_RATE` gate metrics/tracing. When metrics are enabled, `/metrics` exposes Prometheus data; launch the optional Prometheus/Loki/Grafana stack with `docker compose --profile observability up -d`.
   - Telephony: provide `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `VOICE_STT_API_KEY`, `VOICE_TTS_API_KEY`, and expose a public webhook (e.g., via ngrok) before enabling `/voice` endpoints. Use `rag voice-simulate` to dry-run the call flow locally without external dependencies.
+  - Call review storage: configure `CALL_STORAGE_BUCKET`, `CALL_STORAGE_REGION`, optional `CALL_STORAGE_ENDPOINT`, and schedule `CALL_SUMMARY_CRON` once a job runner is in place. TODO: document encryption/retention policies when finalized.
 
 ---
 

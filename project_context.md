@@ -146,11 +146,17 @@
 - Added `rag eval` Typer command to execute precision/recall benchmarks and emit Rich console summaries.
 - Updated configuration (`EVAL_TOP_K`, `EVAL_OUTPUT_DIR`), documentation, and pytest coverage (`tests/eval/test_harness.py`) ensuring failures trigger non-zero CLI exit codes.
 
+
 ### 2025-10-07 — P7-S1: Telephony Integration MVP
 - Added Twilio/Deepgram adapters, call session persistence, and `/voice` endpoints returning TwiML and processing media streams.
-- Introduced new database tables (`call_sessions`, `call_turns`, `call_recordings`) with Alembic migration `0004_voice_sessions`; structured query logs migrated to `0005_structured_query_logs`.
+- Introduced new database tables (`call_sessions`, `call_turns`, `call_recordings`) with Alembic migration `0004_voice_sessions`; structured query logs migrated to `0006_structured_query_logs`.
 - Created voice simulation CLI (`rag voice-simulate`) and added observability hooks (`voice_call_duration_seconds`).
 - Implemented pytest coverage for voice call handler and API surface (`tests/voice/test_call_handler.py`, `tests/api/test_voice.py`).
+
+### 2025-10-08 — P7-S2: Call Review & Analytics
+- Added S3-compatible storage adapter, call session analytics fields, and daily metrics table (`0005_call_analytics`).
+- Built `/admin/calls` API suite, daily summary job (`rag voice-call-summary`), and export CLI (`rag export-calls`).
+- Expanded tests for admin endpoints, storage, and call handler summary/escalation logic.
 
 ## Deviations & Notes
 - Test fixtures reuse the configured Postgres instance instead of creating per-test databases (original brief suggested ephemeral DBs). Document this if multi-tenant isolation becomes critical.

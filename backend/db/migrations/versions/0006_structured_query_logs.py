@@ -1,7 +1,7 @@
 """Create structured query logs table.
 
-Revision ID: 0005_structured_query_logs
-Revises: 0004_voice_sessions
+Revision ID: 0006_structured_query_logs
+Revises: 0005_call_analytics
 Create Date: 2025-09-23
 """
 from __future__ import annotations
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision = "0005_structured_query_logs"
-down_revision = "0004_voice_sessions"
+revision = "0006_structured_query_logs"
+down_revision = "0005_call_analytics"
 branch_labels = None
 depends_on = None
 

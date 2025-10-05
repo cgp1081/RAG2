@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from ..config import Settings, settings_dependency
 from .chat import require_chat_api_key, router as chat_router
 from .ingestion import require_admin_api_key, router as ingestion_router
+from .calls import router as calls_router
 from .metrics import router as metrics_router
 from .retrieval import router as retrieval_router
 from .structured import router as structured_router
@@ -24,6 +25,7 @@ __all__ = [
     "retrieval_router",
     "chat_router",
     "structured_router",
+    "calls_router",
     "metrics_router",
     "require_admin_api_key",
     "require_chat_api_key",

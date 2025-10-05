@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -61,6 +61,11 @@ class Tenant(Base):
         lazy="selectin",
     )
     call_sessions: Mapped[list["CallSession"]] = relationship(
+        back_populates="tenant",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    call_metrics: Mapped[list["CallMetricsDaily"]] = relationship(
         back_populates="tenant",
         cascade="all, delete-orphan",
         lazy="selectin",
@@ -451,6 +456,9 @@ class StructuredQueryLog(Base):
 
 class CallSession(Base):
     __tablename__ = "call_sessions"
+    __table_args__ = (
+        sa.Index("ix_call_sessions_tenant_escalated", "tenant_id", "escalated"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -479,7 +487,18 @@ class CallSession(Base):
     callee_number: Mapped[str | None] = mapped_column(sa.String(32), nullable=True)
     confidence: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
     transcript: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    summary: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    recording_url: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    storage_object_key: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    caller_metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    avg_turn_latency_ms: Mapped[float | None] = mapped_column(sa.Numeric(10, 2), nullable=True)
     error: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    escalated: Mapped[bool] = mapped_column(
+        sa.Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa.text("false"),
+    )
     created_at: Mapped[datetime] = mapped_column(
         sa.TIMESTAMP(timezone=True),
         nullable=False,
@@ -570,6 +589,36 @@ class CallRecording(Base):
     session: Mapped[CallSession] = relationship(back_populates="recordings", lazy="selectin")
 
 
+class CallMetricsDaily(Base):
+    __tablename__ = "call_metrics_daily"
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "date", name="uq_call_metrics_daily_tenant_date"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=_UUID_SERVER_DEFAULT,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        sa.ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    total_calls: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    escalations: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    avg_confidence: Mapped[float | None] = mapped_column(sa.Numeric(5, 2), nullable=True)
+    avg_handle_seconds: Mapped[float | None] = mapped_column(sa.Numeric(10, 2), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=sa.func.now(),
+    )
+
+    tenant: Mapped[Tenant] = relationship(back_populates="call_metrics", lazy="selectin")
+
+
 class IngestionEventType:
     """Canonical ingestion event types."""
 
@@ -598,4 +647,5 @@ __all__ = [
     "CallSession",
     "CallTurn",
     "CallRecording",
+    "CallMetricsDaily",
 ]

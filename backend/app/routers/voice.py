@@ -1,7 +1,6 @@
 """Voice telephony endpoints for Twilio integration."""
 from __future__ import annotations
 
-import asyncio
 import base64
 import uuid
 from typing import AsyncIterator
@@ -24,8 +23,11 @@ from backend.db.models import Tenant
 from backend.db.session import SessionLocal
 from backend.rag.dependencies import get_rag_pipeline
 from backend.rag.pipeline import RAGPipeline
-from backend.voice import build_stt_adapter, build_tts_adapter
-from backend.voice.call_handler import AssistantTurn, CallSessionManager, VoiceCallHandler
+from backend.voice.call_handler import (
+    AssistantTurn,
+    VoiceCallHandler,
+    build_default_voice_handler,
+)
 
 router = APIRouter(prefix="/voice", tags=["voice"])
 
@@ -70,14 +72,7 @@ async def get_voice_handler(
     settings: Settings = Depends(settings_dependency),
     pipeline: RAGPipeline = Depends(get_rag_pipeline),
 ) -> VoiceCallHandler:
-    manager = CallSessionManager()
-    return VoiceCallHandler(
-        session_manager=manager,
-        rag_pipeline=pipeline,
-        stt_adapter=build_stt_adapter(settings),
-        tts_adapter=build_tts_adapter(settings),
-        settings=settings,
-    )
+    return build_default_voice_handler(settings, pipeline)
 
 
 @router.post("/inbound")
@@ -99,11 +94,23 @@ async def inbound_call(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Twilio signature")
 
     tenant_id = _resolve_tenant_id(form.get("Tenant"), settings)
+    metadata = {
+        key: value
+        for key, value in (
+            ("caller_city", form.get("CallerCity")),
+            ("caller_state", form.get("CallerState")),
+            ("caller_country", form.get("CallerCountry")),
+            ("caller_zip", form.get("CallerZip")),
+        )
+        if value
+    }
+
     response_xml, session_id = handler.handle_inbound_call(
         call_sid=call_sid,
         tenant_id=str(tenant_id),
         caller_number=form.get("From"),
         callee_number=form.get("To"),
+        metadata=metadata,
     )
     return PlainTextResponse(response_xml, media_type="application/xml")
 
@@ -122,10 +129,17 @@ async def voice_events(
         session_id = uuid.UUID(session_id_value)
     except ValueError:
         return Response(status_code=status.HTTP_202_ACCEPTED)
+    metadata = {
+        key: payload.get(key)
+        for key in ["CallDuration", "CallerCity", "CallerState", "CallerCountry"]
+        if payload.get(key) is not None
+    }
+
     handler.handle_status_callback(
         session_id=session_id,
         status=payload.get("CallStatus", "in-progress"),
         error=payload.get("ErrorMessage"),
+        metadata=metadata,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

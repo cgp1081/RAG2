@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from alembic import command
 from sqlalchemy import text
 
 
@@ -98,10 +99,16 @@ def test_migration_creates_expected_tables(db_engine):
             "callee_number",
             "confidence",
             "transcript",
+            "summary",
+            "recording_url",
+            "storage_object_key",
+            "caller_metadata",
+            "avg_turn_latency_ms",
             "error",
             "created_at",
             "updated_at",
             "ended_at",
+            "escalated",
         },
         "call_turns": {
             "id",
@@ -122,6 +129,16 @@ def test_migration_creates_expected_tables(db_engine):
             "storage_path",
             "created_at",
         },
+        "call_metrics_daily": {
+            "id",
+            "tenant_id",
+            "date",
+            "total_calls",
+            "escalations",
+            "avg_confidence",
+            "avg_handle_seconds",
+            "created_at",
+        },
     }
 
     with db_engine.connect() as conn:
@@ -138,3 +155,33 @@ def test_migration_creates_expected_tables(db_engine):
             )
             found = {row.column_name for row in result}
             assert columns.issubset(found), f"Missing columns for {table}: {columns - found}"
+
+
+def test_call_analytics_columns_removed_on_downgrade(alembic_config, db_engine):
+    command.downgrade(alembic_config, "0004_voice_sessions")
+    try:
+        with db_engine.connect() as conn:
+            result = conn.execute(
+                text(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = 'call_sessions'
+                    """
+                )
+            )
+            columns = {row.column_name for row in result}
+            assert "summary" not in columns
+            assert "call_metrics_daily" not in {
+                row.table_name
+                for row in conn.execute(
+                    text(
+                        """
+                        SELECT table_name FROM information_schema.tables
+                        WHERE table_schema = 'public'
+                        """
+                    )
+                )
+            }
+    finally:
+        command.upgrade(alembic_config, "head")
