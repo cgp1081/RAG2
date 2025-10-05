@@ -5,22 +5,40 @@ This guide walks a self-hosting operator through bootstrapping the modular Retri
 ## 1. Prerequisites
 
 1. Verify tooling is installed:
-   - Docker Desktop or compatible container runtime
-   - `docker compose` v2+
+   - Docker Desktop or compatible container runtime (with `docker compose` v2+)
    - Python 3.11+
-   - Node.js 18+
-   - Poetry (for backend dependency management)
-   - npm (ships with Node.js)
+   - Poetry 1.6+ (for backend dependency management)
+   - Node.js 18+ (ships with npm)
+   - Ollama 0.1.30+ (for local embedding/LLM serving) **or** credentials for a remote model provider compatible with the configured endpoints
+   ```bash
+   docker compose version
+   poetry --version
+   node --version
+   npm --version
+   ```
+   Ensure the Docker daemon is running and that your user has permission to access the socket before continuing.
+   > Tip: If any command above is missing, install the prerequisite (e.g., `pipx install poetry`, Docker Desktop) before moving on. Network access to PyPI and container registries is required for dependency installation and image pulls.
 2. Set environment variables. Copy the provided sample and adjust as needed:
    ```bash
    cp .env.example .env
    ```
-3. Review required configuration values (defaults provided in `.env.example`):
+3. Install Python dependencies via Poetry:
+   ```bash
+   poetry install
+   ```
+4. Install frontend dependencies:
+   ```bash
+   cd frontend
+   npm install
+   cd ..
+   ```
+5. Review required configuration values (defaults provided in `.env.example`):
 
 | Variable | Purpose | Example |
 | --- | --- | --- |
 | `POSTGRES_URL` / `DATABASE_URL` | Primary Postgres connection | `postgresql+psycopg://postgres:postgres@postgres:5432/postgres` |
 | `QDRANT_URL` | Vector store endpoint | `http://qdrant:6333` |
+| `OLLAMA_BASE_URL` / `LLM_BASE_URL` | Embedding + completion endpoint | `http://localhost:11434` when running Ollama locally |
 | `ADMIN_API_KEY` | Required for `/admin/*` endpoints | `changeme` |
 | `CHAT_API_KEY` | Required for chat API/UI | `changeme-chat` |
 | `VOICE_*` | Optional telephony credentials (Twilio, STT/TTS) | leave blank unless enabling voice |
@@ -28,27 +46,43 @@ This guide walks a self-hosting operator through bootstrapping the modular Retri
 
 > Optional: set `CALL_STORAGE_BUCKET` and related values only when provisioning S3/MinIO for call recordings. Leave empty for local development.
 
+If you plan to run embeddings/LLM locally, install and start Ollama before bootstrapping the stack (examples shown for macOS/Homebrew):
+
+```bash
+brew install ollama
+ollama serve
+# Pull the default models used by the project
+ollama pull nomic-embed-text
+ollama pull mistral
+```
+
+When using a remote provider, update `.env` with the appropriate base URLs, model names, and API keys.
+
 ## 2. Bootstrap the Stack
 
-1. Start core services from the repository root:
+1. Build and launch the backend services from the repository root:
    ```bash
    docker compose up --build postgres qdrant api
    ```
-   This launches Postgres, Qdrant, and the FastAPI backend (hot reload enabled).
-2. Run database migrations to align schema:
+   This launches Postgres, Qdrant, and the FastAPI backend (hot reload enabled). Leave this terminal running.
+2. In a new terminal, run database migrations inside the API container:
    ```bash
-   python -m alembic upgrade head
+   docker compose exec api python -m alembic upgrade head
    ```
-3. Install frontend dependencies:
+   Alternatively, if you are running the backend locally via Poetry (see below), use `poetry run alembic upgrade head`.
+3. (Optional) If you prefer to run the backend outside Docker for development, activate the Poetry environment and start Uvicorn:
    ```bash
-   cd frontend
-   npm install
-   cd ..
+   poetry shell
+   poetry run uvicorn backend.app.main:app --reload
    ```
+   Ensure Postgres and Qdrant are still running via Docker Compose (steps above) or provisioned separately.
 
 ## 3. Ingest Documents
 
-1. Prepare sample files under `data/sample_docs/` (create the directory if needed).
+1. Prepare sample files under `data/sample_docs/` (create the directory if needed):
+   ```bash
+   mkdir -p data/sample_docs
+   ```
 2. Ingest documents for the default tenant:
    ```bash
    poetry run rag ingest-files --path data/sample_docs --tenant default
@@ -74,7 +108,7 @@ This guide walks a self-hosting operator through bootstrapping the modular Retri
 
 ## 5. Launch the Chat Interface
 
-1. Ensure the backend is running (either via Docker compose or `poetry run uvicorn backend.app.main:app --reload`).
+1. Ensure the backend is running (either via Docker Compose or `poetry run uvicorn backend.app.main:app --reload`).
 2. Start the frontend from `frontend/`:
    ```bash
    npm run dev
@@ -88,6 +122,7 @@ This guide walks a self-hosting operator through bootstrapping the modular Retri
 5. Troubleshooting tips:
    - CORS errors usually stem from mismatched `NEXT_PUBLIC_API_BASE_URL`; align frontend `.env.local` with backend origin.
    - Check `/admin/ingestion-runs` and `/admin/documents` for ingestion progress if responses lack citations.
+   - Connection errors to Ollama indicate the embedding/LLM service is not running or the `.env` URLs are incorrect.
 
 ## 6. Telephony (Optional)
 
@@ -110,4 +145,3 @@ Voice features require Twilio credentials and optional S3 storage for recordings
    Outputs CSV to `reports/calls.csv` by default.
 
 By completing these steps, operators can ingest data, validate retrieval quality, and interact with the chat (and optionally voice) experiences in the RAG platform.
-

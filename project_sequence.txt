@@ -25,7 +25,7 @@
 - P7-S2 ← P7-S1, P6-S1 (analytics needs voice + metrics).
 
 **Risk & Unknowns Log**
-- **Backend framework decision**: FastAPI assumed; confirm before coding. Mitigation: validate with engineering; fallback to Node per docs.
+- **Backend deployment topology**: Need to finalize container orchestration and ingress strategy for the FastAPI service. Mitigation: compare Kubernetes, ECS, and bare-metal options; document chosen path.
 - **Embedding/LLM availability**: Ollama models must run locally; ensure hardware + model selection. Mitigation: cache embeddings, allow OpenAI fallback.
 - **Vector DB hosting**: Qdrant self-host vs managed unsettled. Mitigation: start Docker container for dev, abstract config for future managed swap.
 - **SQL guardrails scope**: Policy depth (row-level filters, safe operators) not finalized. Mitigation: conservative allowlist; log assumptions.

@@ -11,10 +11,10 @@
 
 ## Planning Assets
 - `projectmanager.md`: System prompt for Project Manager agent. Ensures deterministic planning, modular phases, test-driven tasks.
-- `project_sequence.txt`: End-to-end execution plan produced 2024-?? (fill date when known). Contains:
+- `project_sequence.txt`: End-to-end execution plan (living document; see git history for revision timestamps). Contains:
   - Global roadmap (Phases P0–P7) from foundations through telephony analytics.
   - Dependency map spelling prerequisite relationships.
-  - Risk & Unknowns log (framework choice, embedding host, vector DB hosting, SQL guard scope, telephony vendor, structured data scale, eval dataset ownership).
+  - Risk & Unknowns log (backend deployment topology, embedding host, vector DB hosting, SQL guard scope, telephony vendor, structured data scale, eval dataset ownership).
   - Handoff briefs for 14 tasks (P0-S1 … P7-S2) formatted for prompt handoff.
   - Machine-readable JSON tasks array aligning with briefs for automation.
 
@@ -32,7 +32,7 @@
 - Observability and evaluation tasks (P6-S1, P6-S2) add additional validation tools; run them before telephony work.
 
 ## Outstanding Decisions / Watchlist
-- Confirm backend stack (FastAPI assumed) and note any deviation in architecture.md.
+- Backend stack locked to FastAPI; document any future deviations in architecture.md.
 - Finalize embedding/LLM providers and vector DB hosting (Ollama + self-hosted Qdrant currently assumed).
 - Decide SQL guard policies, telephony/STT/TTS vendors, CSV size limits, and golden dataset source before corresponding tasks.
 - Record all approvals/changes in this context file to keep future planning consistent.

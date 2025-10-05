@@ -12,7 +12,7 @@
 ### 2.1 Web Portals (Employee & Customer)
 - **Function:** Provide chat interfaces and admin tools for employees and customers to query RAG data, manage content, and review analytics.
 - **Justification:** Portals already planned in README/PRD; reusing the web stack keeps UX consistent and reduces maintenance overhead.
-- **Decisions Pending:** Finalize web framework (React/Next.js vs alternatives) and hosting model before any build.
+- **Decisions Pending:** Confirm production hosting model (self-hosted containers vs managed Next.js hosting) and CDN strategy before deployment.
 
 ### 2.2 Telephone Support Agent
 - **Function:** Handles inbound/outbound calls, captures speech, orchestrates RAG answers, and delivers responses via neural TTS.
@@ -22,9 +22,9 @@
 ## 3. Core Services
 
 ### 3.1 API Gateway & Orchestration Service
-- **Function:** Single entry point for chat, voice, ingestion, and admin APIs; enforces auth, routing, rate limits, and orchestrates retrieval/generation flows.
+- **Function:** Single entry point for chat, voice, ingestion, and admin APIs; enforces auth, routing, rate limits, and orchestrates retrieval/generation flows using FastAPI on Python 3.11.
 - **Justification:** Centralized control plane simplifies security and observability while enabling shared business logic.
-- **Decisions Pending:** Choose backend framework (FastAPI vs Node/Express/Nest) and hosting (containers vs serverless) before coding.
+- **Decisions Pending:** Finalize deployment topology (container orchestrator, ingress controller) and API gateway policy tooling before further scaling work.
 
 ### 3.2 Retrieval Engine
 - **Function:** Manages hybrid document/table retrieval, chunk ranking, and prompt assembly for LLM responses.
