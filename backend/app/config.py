@@ -6,6 +6,7 @@ SQLAlchemy session factory. Future components should rely on
 """
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 from functools import lru_cache
@@ -97,7 +98,16 @@ class Settings(BaseSettings):
         if value is None or value == "":
             return []
         if isinstance(value, str):
-            return [item.strip() for item in value.split(",") if item.strip()]
+            text = value.strip()
+            if text.startswith("[") and text.endswith("]"):
+                try:
+                    parsed = json.loads(text)
+                except json.JSONDecodeError as exc:  # pragma: no cover - invalid env configuration
+                    raise ValueError("Invalid fallback model list") from exc
+                if not isinstance(parsed, list):
+                    raise ValueError("Invalid fallback model list")
+                return [str(item).strip() for item in parsed if str(item).strip()]
+            return [item.strip() for item in text.split(",") if item.strip()]
         if isinstance(value, (list, tuple, set)):
             return [str(item).strip() for item in value if str(item).strip()]
         raise ValueError("Invalid fallback model list")
