@@ -168,6 +168,8 @@ Retrieval-Augmented Generation (RAG) platform for SMBs that need to unlock inter
 
 ## Deployment & DevOps
 
+See [docs/getting_started.md](docs/getting_started.md) for a step-by-step operator setup guide covering service bootstrap, ingestion, evaluation, and chat usage.
+
 - **Packaging:** Docker-first with docker-compose reference; Helm charts in roadmap.
 - **Environment Targets:** Self-hosted (on-prem/cloud), later multi-tenant SaaS.
 - **Scaling:** Horizontal scaling on workers and API; asynchronous task queue (Celery/RQ/BullMQ).
