@@ -16,8 +16,8 @@ from pypdf import PdfReader
 from sqlalchemy.orm import Session
 
 from backend.app.config import Settings
-from backend.app.observability import record_ingestion_duration
 from backend.app.logging import get_logger
+from backend.app.observability import record_ingestion_duration
 from backend.db.models import (
     Document,
     DocumentChunk,

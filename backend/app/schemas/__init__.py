@@ -3,9 +3,9 @@ from .chat import (
     ChatMetadataFilters,
     ChatQueryRequest,
     ChatQueryResponse,
+    ChatTableResult,
     CitationSchema,
     TokenUsageSchema,
-    ChatTableResult,
 )
 from .ingestion import (
     DocumentStatus,

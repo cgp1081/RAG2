@@ -11,14 +11,14 @@ from fastapi import FastAPI
 from backend.db.session import init_engine
 
 from .config import get_settings
-from .middleware import TracingMiddleware
 from .logging import RequestLoggingMiddleware, configure_logging, get_logger
+from .middleware import TracingMiddleware
 from .observability import configure_tracing, init_metrics
 from .routers import chat_router, health_router, retrieval_router, structured_router
-from .routers.voice import router as voice_router
+from .routers.calls import router as calls_router
 from .routers.ingestion import router as admin_router
 from .routers.metrics import router as metrics_router
-from .routers.calls import router as calls_router
+from .routers.voice import router as voice_router
 
 
 def create_app() -> FastAPI:

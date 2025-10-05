@@ -1,8 +1,8 @@
 """Admin APIs for reviewing telephony call analytics."""
 from __future__ import annotations
 
-from datetime import date, datetime
 import uuid
+from datetime import date
 from typing import Optional
 
 import structlog

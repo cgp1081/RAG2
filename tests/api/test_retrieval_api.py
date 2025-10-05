@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
+from backend.retrieval.dependencies import get_retrieval_service
 from backend.retrieval.models import RetrievalFilters, RetrievalResponse, RetrievedChunk
 from backend.retrieval.service import RetrievalService
-from backend.retrieval.dependencies import get_retrieval_service
 
 
 class FakeRetrievalService(RetrievalService):

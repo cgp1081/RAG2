@@ -9,7 +9,7 @@ from backend.app.config import Settings
 from backend.rag.llm_client import LLMResult
 from backend.rag.pipeline import RAGPipeline
 from backend.rag.prompts import PromptBuilder
-from backend.retrieval.models import RetrievedChunk, RetrievalResponse
+from backend.retrieval.models import RetrievalResponse, RetrievedChunk
 from backend.structured.query_service import ColumnMeta, QueryResult, TableRow
 
 

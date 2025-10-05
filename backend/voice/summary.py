@@ -1,7 +1,7 @@
 """Utilities for computing daily call metrics."""
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date
 from typing import Optional
 
 import structlog

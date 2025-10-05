@@ -16,8 +16,12 @@ from backend.app.observability import record_voice_call_duration
 from backend.db.models import CallRecording, CallSession, CallTurn
 from backend.db.session import SessionLocal
 from backend.rag.pipeline import RAGPipeline
-from backend.voice.storage import CallStorageAdapter, NullCallStorageAdapter, build_call_storage_adapter
-from backend.voice.stt_adapter import DeepgramSTTAdapter, TranscriptSegment
+from backend.voice.storage import (
+    CallStorageAdapter,
+    NullCallStorageAdapter,
+    build_call_storage_adapter,
+)
+from backend.voice.stt_adapter import DeepgramSTTAdapter
 from backend.voice.tts_adapter import TTSAdapter
 from backend.voice.worker import process_call_turn
 

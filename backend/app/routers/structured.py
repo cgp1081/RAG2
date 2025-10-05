@@ -15,7 +15,11 @@ from backend.app.schemas.structured import (
     StructuredQueryResponse,
 )
 from backend.db.session import get_db_session
-from backend.structured.query_service import GuardViolation, QueryResult, StructuredQueryService, build_query_service
+from backend.structured.query_service import (
+    GuardViolation,
+    QueryResult,
+    build_query_service,
+)
 
 _logger = get_logger(__name__)
 

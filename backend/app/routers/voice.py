@@ -8,6 +8,7 @@ from typing import AsyncIterator
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
+
 try:  # pragma: no cover - optional dependency
     from twilio.request_validator import RequestValidator
 except Exception:  # pragma: no cover - fallback when twilio not installed

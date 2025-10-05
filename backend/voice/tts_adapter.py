@@ -1,8 +1,6 @@
 """Text-to-speech adapter for assistant responses."""
 from __future__ import annotations
 
-from typing import Optional
-
 import structlog
 
 logger = structlog.get_logger(__name__)

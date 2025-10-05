@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-import pytest
-
 from uuid import uuid4
 
+import pytest
+
+from backend.app.routers import chat as chat_router
+from backend.db import SessionLocal
+from backend.db.models import Tenant
 from backend.rag import get_rag_pipeline
 from backend.rag.llm_client import LLMTimeoutError
 from backend.rag.pipeline import Citation, RAGResult, TokenUsage
 from backend.retrieval.models import RetrievalFilters
 from backend.structured.query_service import ColumnMeta, QueryResult, TableRow
-from backend.app.routers import chat as chat_router
-from backend.db import SessionLocal
-from backend.db.models import Tenant
 
 
 class FakePipeline:

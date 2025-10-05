@@ -9,7 +9,6 @@ from httpx import AsyncClient
 
 from backend.app.config import Settings
 from backend.db.models import CallSession, CallTurn, Tenant
-from backend.db.session import SessionLocal
 
 
 class StubStorage:

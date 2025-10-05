@@ -9,8 +9,8 @@ from uuid import uuid4
 from structlog.stdlib import BoundLogger
 
 from backend.app.config import Settings
-from backend.app.observability import record_rag_duration
 from backend.app.logging import get_logger
+from backend.app.observability import record_rag_duration
 from backend.rag.llm_client import LLMClient
 from backend.rag.prompts import (
     MAX_SNIPPET_LENGTH,

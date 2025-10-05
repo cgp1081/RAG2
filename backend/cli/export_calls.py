@@ -2,13 +2,11 @@
 from __future__ import annotations
 
 import csv
-import os
 from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
 import typer
-
 from sqlalchemy import func
 
 from backend.db.models import CallSession

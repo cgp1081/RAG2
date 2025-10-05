@@ -7,10 +7,10 @@ from typing import Optional
 
 from fastapi import FastAPI
 from prometheus_client import (  # type: ignore
+    CONTENT_TYPE_LATEST,
     CollectorRegistry,
     Counter,
     Histogram,
-    CONTENT_TYPE_LATEST,
     generate_latest,
 )
 from structlog import get_logger as structlog_get_logger

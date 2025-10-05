@@ -9,10 +9,10 @@ from typing import Any, Sequence
 
 import pandas as pd
 import sqlglot
-from sqlglot import exp
-from sqlglot.errors import ParseError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlglot import exp
+from sqlglot.errors import ParseError
 
 from backend.app.config import Settings
 from backend.app.logging import get_logger

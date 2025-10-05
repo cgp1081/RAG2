@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from pathlib import Path
-from types import SimpleNamespace
 import uuid
-
-import pytest
+from types import SimpleNamespace
 
 from backend.voice import storage as storage_module
-from backend.voice.storage import CallStorageAdapter, NullCallStorageAdapter, build_call_storage_adapter
+from backend.voice.storage import (
+    CallStorageAdapter,
+    NullCallStorageAdapter,
+    build_call_storage_adapter,
+)
 
 
 class FakeClient:
@@ -15,7 +16,7 @@ class FakeClient:
         self.uploaded: list[tuple[str, str]] = []
 
     def upload_fileobj(self, fileobj, bucket: str, key: str) -> None:
-        data = fileobj.read()
+        fileobj.read()
         self.uploaded.append((bucket, key))
 
     def generate_presigned_url(self, *_args, **_kwargs) -> str:

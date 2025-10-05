@@ -9,7 +9,6 @@ from httpx import AsyncClient
 from backend.app.config import Settings
 from backend.app.routers import voice as voice_router
 from backend.db.models import Tenant
-from backend.voice.call_handler import VoiceCallHandler
 
 
 class StubVoiceHandler:

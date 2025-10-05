@@ -2,9 +2,11 @@
 from fastapi import APIRouter, Depends
 
 from ..config import Settings, settings_dependency
-from .chat import require_chat_api_key, router as chat_router
-from .ingestion import require_admin_api_key, router as ingestion_router
 from .calls import router as calls_router
+from .chat import require_chat_api_key
+from .chat import router as chat_router
+from .ingestion import require_admin_api_key
+from .ingestion import router as ingestion_router
 from .metrics import router as metrics_router
 from .retrieval import router as retrieval_router
 from .structured import router as structured_router

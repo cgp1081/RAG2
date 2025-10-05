@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import uuid
-
 import pytest
 from sqlalchemy import select
 
@@ -13,7 +11,10 @@ from backend.db.models import (
     StructuredTable,
     Tenant,
 )
-from backend.structured.query_service import GuardViolation, StructuredQueryService, build_query_service
+from backend.structured.query_service import (
+    GuardViolation,
+    build_query_service,
+)
 
 
 def _seed_table(session, tenant: Tenant) -> StructuredTable:
@@ -71,7 +72,7 @@ async def test_execute_allows_safe_select(db_session, settings_override: Setting
     db_session.add(tenant)
     db_session.commit()
 
-    table = _seed_table(db_session, tenant)
+    _seed_table(db_session, tenant)
 
     service = build_query_service(settings_override, db_session)
     result = service.execute("SELECT id, name FROM employees LIMIT 10", tenant.id, "employees")
@@ -124,7 +125,7 @@ async def test_execute_logs_error_on_exception(db_session, settings_override: Se
     db_session.add(tenant)
     db_session.commit()
 
-    table = _seed_table(db_session, tenant)
+    _seed_table(db_session, tenant)
     service = build_query_service(settings_override, db_session)
 
     def boom(*args, **kwargs):

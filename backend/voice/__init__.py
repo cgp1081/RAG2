@@ -1,8 +1,6 @@
 """Voice adapter factory helpers."""
 from __future__ import annotations
 
-from typing import Optional
-
 from backend.app.config import Settings
 
 from .stt_adapter import DeepgramSTTAdapter, TranscriptSegment
